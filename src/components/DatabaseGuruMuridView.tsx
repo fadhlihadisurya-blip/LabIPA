@@ -153,7 +153,13 @@ export const DatabaseGuruMuridView: React.FC = () => {
     Array<{ name: string; subject: string; notes?: string }>
   >([]);
   const [parsedStudents, setParsedStudents] = useState<
-    Array<{ name: string; classGroup: string; gender: 'L' | 'P' }>
+    Array<{
+      name: string;
+      nis: string;
+      classGroup: string;
+      gender: 'L' | 'P';
+      status: 'Aktif' | 'Alumni' | 'Pindah';
+    }>
   >([]);
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState('');
@@ -418,21 +424,19 @@ export const DatabaseGuruMuridView: React.FC = () => {
     const headers = [
       'No',
       'Nama Siswa',
+      'NIS',
       'Kelas',
-      'Gender',
-      'Status Pinjaman Alat',
-      'Status Pinjaman Ruangan',
+      'Jenis kelamin',
+      'Status Siswa',
     ];
     const rows = filteredStudents.map((s, idx) => {
-      const activeBorrows = getStudentActiveBorrows(s.name);
-      const roomLoan = getStudentRoomLoan(s);
       return [
         idx + 1,
         `"${s.name}"`,
+        `"${s.nis}"`,
         `"${s.classGroup}"`,
         s.gender === 'L' ? 'Laki-laki (L)' : 'Perempuan (P)',
-        activeBorrows.length > 0 ? `Sedang Pinjam (${activeBorrows.length} Alat)` : 'Bebas Pinjaman',
-        roomLoan.isBorrowing ? `Sedang Pinjam (${roomLoan.detail})` : 'Bebas Pinjaman Ruangan',
+        `"${s.status || 'Aktif'}"`,
       ];
     });
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
@@ -472,13 +476,13 @@ export const DatabaseGuruMuridView: React.FC = () => {
     const csvContent =
       '\uFEFF' +
       [
-        'Nama Siswa,Kelas,Gender',
-        '"Ahmad Fauzi","10 Abu Bakar",L',
-        '"Fatimah Azzahra","10 Umar",P',
-        '"Muhammad Zaki","11 MIPA 1",L',
-        '"Nurul Izzah","11 MIPA 2",P',
-        '"Raihan Pratama","12 MIPA 1",L',
-        '"Siti Aisyah","12 IPS",P',
+        'Nama Siswa,NIS,Kelas,Jenis kelamin,Status Siswa',
+        '"Ahmad Fauzi","212210001","10 Abu Bakar","L","Aktif"',
+        '"Fatimah Azzahra","212210002","10 Umar","P","Aktif"',
+        '"Muhammad Zaki","212210003","11 MIPA 1","L","Aktif"',
+        '"Nurul Izzah","212210004","11 MIPA 2","P","Aktif"',
+        '"Raihan Pratama","212210005","12 MIPA 1","L","Aktif"',
+        '"Siti Aisyah","212210006","12 IPS","P","Aktif"',
       ].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -589,18 +593,23 @@ export const DatabaseGuruMuridView: React.FC = () => {
               h.includes('nama') ||
               h.includes('siswa') ||
               h.includes('murid') ||
+              h.includes('nis') ||
               h.includes('kelas') ||
               h.includes('rombel')
           );
 
           let nameIdx = 0;
-          let classIdx = 1;
-          let genderIdx = 2;
+          let nisIdx = 1;
+          let classIdx = 2;
+          let genderIdx = 3;
+          let statusIdx = 4;
 
           if (hasHeader) {
             headerRow.forEach((h, idx) => {
               if (h.includes('nama') || h.includes('siswa') || h.includes('murid'))
                 nameIdx = idx;
+              else if (h.includes('nis') || h.includes('induk'))
+                nisIdx = idx;
               else if (
                 h.includes('kelas') ||
                 h.includes('rombel') ||
@@ -613,20 +622,26 @@ export const DatabaseGuruMuridView: React.FC = () => {
                 h.includes('jk')
               )
                 genderIdx = idx;
+              else if (h.includes('status'))
+                statusIdx = idx;
             });
           }
 
           const dataRows = hasHeader ? rows.slice(1) : rows;
           const parsed: Array<{
             name: string;
+            nis: string;
             classGroup: string;
             gender: 'L' | 'P';
+            status: 'Aktif' | 'Alumni' | 'Pindah';
           }> = [];
 
           for (const row of dataRows) {
             if (!row || row.length === 0) continue;
             const name = (row[nameIdx] || '').trim().replace(/^["']|["']$/g, '');
             if (!name) continue;
+
+            const nis = (row[nisIdx] || '').trim().replace(/^["']|["']$/g, '') || `21221${Math.floor(1000 + Math.random() * 9000)}`;
 
             let classGroup = (row[classIdx] || '').trim().replace(/^["']|["']$/g, '');
             const matchedClass = STUDENT_CLASS_OPTIONS.find(
@@ -646,10 +661,16 @@ export const DatabaseGuruMuridView: React.FC = () => {
                 ? 'P'
                 : 'L';
 
+            const rawStatus = (row[statusIdx] || '').trim().toLowerCase();
+            const status: 'Aktif' | 'Alumni' | 'Pindah' =
+              rawStatus.includes('alumni') ? 'Alumni' : rawStatus.includes('pindah') ? 'Pindah' : 'Aktif';
+
             parsed.push({
               name,
+              nis,
               classGroup,
               gender,
+              status,
             });
           }
 
@@ -712,13 +733,12 @@ export const DatabaseGuruMuridView: React.FC = () => {
 
         let count = 0;
         for (const s of parsedStudents) {
-          const generatedNis = `${Math.floor(24000 + Math.random() * 9000)}`;
           await addStudent({
             name: s.name,
-            nis: generatedNis,
+            nis: s.nis,
             classGroup: s.classGroup,
             gender: s.gender,
-            status: 'Aktif',
+            status: s.status,
             roomLoanStatus: 'Bebas',
             roomLoanDetail: '',
           });
@@ -1764,8 +1784,10 @@ export const DatabaseGuruMuridView: React.FC = () => {
                       ) : (
                         <>
                           Header: <span className="font-mono bg-blue-100 px-1 py-0.5 rounded text-blue-900">Nama Siswa</span>,{' '}
+                          <span className="font-mono bg-blue-100 px-1 py-0.5 rounded text-blue-900">NIS</span>,{' '}
                           <span className="font-mono bg-blue-100 px-1 py-0.5 rounded text-blue-900">Kelas</span>,{' '}
-                          <span className="font-mono bg-blue-100 px-1 py-0.5 rounded text-blue-900">Gender (L / P)</span>
+                          <span className="font-mono bg-blue-100 px-1 py-0.5 rounded text-blue-900">Jenis kelamin</span>,{' '}
+                          <span className="font-mono bg-blue-100 px-1 py-0.5 rounded text-blue-900">Status Siswa</span>
                         </>
                       )}
                     </p>
@@ -1911,8 +1933,10 @@ export const DatabaseGuruMuridView: React.FC = () => {
                         <tr>
                           <th className="p-2 w-10 text-center">No</th>
                           <th className="p-2">Nama Siswa</th>
+                          <th className="p-2">NIS</th>
                           <th className="p-2">Kelas</th>
-                          <th className="p-2">Gender</th>
+                          <th className="p-2">Jenis Kelamin</th>
+                          <th className="p-2">Status Siswa</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -1920,6 +1944,7 @@ export const DatabaseGuruMuridView: React.FC = () => {
                           <tr key={i} className="hover:bg-slate-50">
                             <td className="p-2 text-center text-slate-400">{i + 1}</td>
                             <td className="p-2 font-semibold text-slate-800">{s.name}</td>
+                            <td className="p-2 font-mono text-slate-600">{s.nis}</td>
                             <td className="p-2">
                               <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                                 {s.classGroup}
@@ -1933,8 +1958,11 @@ export const DatabaseGuruMuridView: React.FC = () => {
                                     : 'bg-rose-100 text-rose-700'
                                 }`}
                               >
-                                {s.gender === 'L' ? 'L (Ikhwan)' : 'P (Akhwat)'}
+                                {s.gender === 'L' ? 'Laki-laki (L)' : 'Perempuan (P)'}
                               </span>
+                            </td>
+                            <td className="p-2 font-medium text-slate-700">
+                              {s.status}
                             </td>
                           </tr>
                         ))}
