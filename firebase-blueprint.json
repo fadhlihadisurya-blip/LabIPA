@@ -1,0 +1,122 @@
+{
+  "entities": {
+    "Chemical": {
+      "title": "Chemical",
+      "description": "Bahan kimia laboratorium IPA dan informasi bahaya",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "formula": { "type": "string" },
+        "casNumber": { "type": "string" },
+        "form": { "type": "string", "enum": ["Padat", "Cair", "Gas", "Indikator"] },
+        "stock": { "type": "number" },
+        "unit": { "type": "string", "enum": ["gram", "kg", "mL", "L", "botol", "buah"] },
+        "minStock": { "type": "number" },
+        "location": { "type": "string" },
+        "hazards": { "type": "array" },
+        "expiryDate": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["code", "name", "formula", "stock", "unit"]
+    },
+    "Equipment": {
+      "title": "Equipment",
+      "description": "Instrumen dan alat laboratorium IPA",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["Kimia", "Fisika", "Biologi", "Umum"] },
+        "totalCount": { "type": "number" },
+        "goodCount": { "type": "number" },
+        "damagedCount": { "type": "number" },
+        "borrowedCount": { "type": "number" },
+        "location": { "type": "string" },
+        "brand": { "type": "string" },
+        "specification": { "type": "string" }
+      },
+      "required": ["code", "name", "category", "totalCount", "goodCount"]
+    },
+    "BorrowRecord": {
+      "title": "BorrowRecord",
+      "description": "Riwayat dan ajuan peminjaman alat",
+      "type": "object",
+      "properties": {
+        "borrowerName": { "type": "string" },
+        "borrowerType": { "type": "string", "enum": ["Guru", "Murid"] },
+        "idNumber": { "type": "string" },
+        "classOrDept": { "type": "string" },
+        "equipmentId": { "type": "string" },
+        "equipmentName": { "type": "string" },
+        "quantity": { "type": "number" },
+        "borrowDate": { "type": "string" },
+        "returnDueDate": { "type": "string" },
+        "actualReturnDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["Menunggu Persetujuan", "Dipinjam", "Kembali (Baik)", "Kembali (Rusak/Pecah)", "Ditolak"] },
+        "purpose": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["borrowerName", "equipmentId", "equipmentName", "quantity", "borrowDate", "returnDueDate", "status"]
+    },
+    "VisitRequest": {
+      "title": "VisitRequest",
+      "description": "Reservasi dan jadwal kunjungan ruang laboratorium IPA",
+      "type": "object",
+      "properties": {
+        "teacherName": { "type": "string" },
+        "contactNumber": { "type": "string" },
+        "labType": { "type": "string", "enum": ["Lab Kimia", "Lab Fisika", "Lab Biologi", "Lab IPA Terpadu"] },
+        "classGroup": { "type": "string" },
+        "studentCount": { "type": "number" },
+        "practicumTitle": { "type": "string" },
+        "practicumSubject": { "type": "string", "enum": ["Fisika", "Kimia", "Biologi", "IPA Terpadu"] },
+        "visitDate": { "type": "string" },
+        "sessionTime": { "type": "string" },
+        "status": { "type": "string", "enum": ["Menunggu Persetujuan", "Disetujui", "Ditolak", "Selesai"] },
+        "specialRequirements": { "type": "string" },
+        "laboranNotes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["teacherName", "labType", "classGroup", "practicumTitle", "visitDate", "sessionTime", "status"]
+    },
+    "ChemicalRequest": {
+      "title": "ChemicalRequest",
+      "description": "Ajuan kebutuhan bahan habis pakai praktikum",
+      "type": "object",
+      "properties": {
+        "teacherName": { "type": "string" },
+        "classGroup": { "type": "string" },
+        "practicumTitle": { "type": "string" },
+        "dateNeeded": { "type": "string" },
+        "items": { "type": "array" },
+        "status": { "type": "string", "enum": ["Menunggu Persetujuan", "Disetujui", "Ditolak", "Selesai"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["teacherName", "classGroup", "practicumTitle", "dateNeeded", "items", "status"]
+    }
+  },
+  "firestore": {
+    "/chemicals/{chemicalId}": {
+      "schema": { "$ref": "#/entities/Chemical" },
+      "description": "Koleksi data reagen dan bahan kimia laboratorium"
+    },
+    "/equipment/{equipmentId}": {
+      "schema": { "$ref": "#/entities/Equipment" },
+      "description": "Koleksi inventaris alat laboratorium"
+    },
+    "/borrows/{borrowId}": {
+      "schema": { "$ref": "#/entities/BorrowRecord" },
+      "description": "Koleksi peminjaman dan pengembalian alat"
+    },
+    "/visits/{visitId}": {
+      "schema": { "$ref": "#/entities/VisitRequest" },
+      "description": "Koleksi reservasi ruang lab"
+    },
+    "/chemical_requests/{requestId}": {
+      "schema": { "$ref": "#/entities/ChemicalRequest" },
+      "description": "Koleksi permohonan bahan praktikum"
+    }
+  }
+}
