@@ -91,6 +91,7 @@ interface LabContextType {
     notes?: string
   ) => Promise<void>;
   rejectBorrow: (id: string, reason?: string) => Promise<void>;
+  deleteBorrow: (id: string) => Promise<void>;
 
   visits: VisitRequest[];
   addVisit: (item: Omit<VisitRequest, 'id' | 'status' | 'createdAt'>) => Promise<void>;
@@ -665,6 +666,37 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const deleteBorrow = async (id: string) => {
+    const target = borrows.find((b) => b.id === id);
+    setBorrows((prev) => prev.filter((b) => b.id !== id));
+    try {
+      if (target && target.status === 'Dipinjam') {
+        if (target.items && target.items.length > 0) {
+          for (const item of target.items) {
+            const eqTarget = equipment.find((e) => e.id === item.equipmentId);
+            if (eqTarget) {
+              await updateDoc(doc(db, 'equipment', eqTarget.id), {
+                borrowedCount: Math.max(0, eqTarget.borrowedCount - item.quantity),
+                goodCount: eqTarget.goodCount + item.quantity,
+              });
+            }
+          }
+        } else {
+          const eqTarget = equipment.find((e) => e.id === target.equipmentId);
+          if (eqTarget) {
+            await updateDoc(doc(db, 'equipment', eqTarget.id), {
+              borrowedCount: Math.max(0, eqTarget.borrowedCount - target.quantity),
+              goodCount: eqTarget.goodCount + target.quantity,
+            });
+          }
+        }
+      }
+      await deleteDoc(doc(db, 'borrows', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `borrows/${id}`);
+    }
+  };
+
   // Visit Actions
   const addVisit = async (item: Omit<VisitRequest, 'id' | 'status' | 'createdAt'>) => {
     const id = `vr-${Date.now()}`;
@@ -884,6 +916,7 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         approveBorrow,
         returnBorrow,
         rejectBorrow,
+        deleteBorrow,
         visits,
         addVisit,
         updateVisitStatus,

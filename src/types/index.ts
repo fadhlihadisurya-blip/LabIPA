@@ -58,6 +58,12 @@ export interface Equipment {
   specification?: string;
 }
 
+export interface BorrowItem {
+  equipmentId: string;
+  equipmentName: string;
+  quantity: number;
+}
+
 export interface BorrowRecord {
   id: string;
   borrowerName: string;
@@ -67,6 +73,7 @@ export interface BorrowRecord {
   equipmentId: string;
   equipmentName: string;
   quantity: number;
+  items?: BorrowItem[];
   borrowDate: string; // YYYY-MM-DD
   returnDueDate: string; // YYYY-MM-DD
   actualReturnDate?: string;
@@ -183,6 +190,7 @@ export interface Teacher {
   totalVisits?: number;
   totalBorrow?: number;
   notes?: string;
+  fingerprintStatus?: 'belum input' | 'Recorded';
 }
 
 export interface Student {
@@ -197,4 +205,5 @@ export interface Student {
   notes?: string;
   roomLoanStatus?: 'Bebas' | 'Sedang Pinjam';
   roomLoanDetail?: string;
+  fingerprintStatus?: 'belum input' | 'Recorded';
 }

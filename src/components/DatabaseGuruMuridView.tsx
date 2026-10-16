@@ -25,6 +25,7 @@ import {
   FileUp,
   AlertCircle,
   Check,
+  Fingerprint,
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
 import { Teacher, TeacherSubject, Student, BorrowRecord } from '../types';
@@ -188,6 +189,15 @@ export const DatabaseGuruMuridView: React.FC = () => {
     return borrows.filter(
       (b) =>
         b.borrowerName.toLowerCase().trim() === studentNameStr.toLowerCase().trim() &&
+        b.status === 'Dipinjam'
+    );
+  };
+
+  // Helper for teacher active borrows
+  const getTeacherActiveBorrows = (teacherNameStr: string) => {
+    return borrows.filter(
+      (b) =>
+        b.borrowerName.toLowerCase().trim() === teacherNameStr.toLowerCase().trim() &&
         b.status === 'Dipinjam'
     );
   };
@@ -435,7 +445,7 @@ export const DatabaseGuruMuridView: React.FC = () => {
         `"${s.name}"`,
         `"${s.nis}"`,
         `"${s.classGroup}"`,
-        s.gender === 'L' ? 'Laki-laki (L)' : 'Perempuan (P)',
+        s.gender,
         `"${s.status || 'Aktif'}"`,
       ];
     });
@@ -867,7 +877,7 @@ export const DatabaseGuruMuridView: React.FC = () => {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Data Guru IPA</span>
+          <span>Data Guru</span>
           <span className="ml-1.5 px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800 font-mono">
             {teachers.length}
           </span>
@@ -952,52 +962,132 @@ export const DatabaseGuruMuridView: React.FC = () => {
               {/* Header List Ke Bawah */}
               <div className="hidden sm:grid grid-cols-12 gap-4 px-6 py-3.5 bg-slate-50/90 border-b border-slate-200 text-slate-600 uppercase text-[10px] tracking-wider font-bold items-center">
                 <div className="col-span-1 text-center">No</div>
-                <div className="col-span-4">Nama Lengkap</div>
-                <div className="col-span-3">Mata Pelajaran</div>
-                <div className="col-span-3">Catatan Tambahan</div>
+                <div className="col-span-3">Nama Lengkap</div>
+                <div className="col-span-2">Mata Pelajaran</div>
+                <div className="col-span-2">Status Pinjaman Alat</div>
+                <div className="col-span-3">Biometrik Fingerprint</div>
                 <div className="col-span-1 text-right">Aksi</div>
               </div>
 
               {/* List Items Ke Bawah */}
               <div className="divide-y divide-slate-100">
-                {filteredTeachers.map((teacher, index) => (
-                  <div
-                    key={teacher.id}
-                    className="p-4 sm:px-6 sm:py-4 hover:bg-blue-50/30 transition-colors flex flex-col sm:grid sm:grid-cols-12 sm:gap-4 sm:items-center text-xs group"
-                  >
-                    {/* Kolom No */}
-                    <div className="hidden sm:block sm:col-span-1 text-center font-mono font-semibold text-slate-400">
-                      {index + 1}
-                    </div>
+                {filteredTeachers.map((teacher, index) => {
+                  const teacherBorrows = getTeacherActiveBorrows(teacher.name);
+                  return (
+                    <div
+                      key={teacher.id}
+                      className="p-4 sm:px-6 sm:py-4 hover:bg-blue-50/30 transition-colors flex flex-col sm:grid sm:grid-cols-12 sm:gap-4 sm:items-center text-xs group"
+                    >
+                      {/* Kolom No */}
+                      <div className="hidden sm:block sm:col-span-1 text-center font-mono font-semibold text-slate-400">
+                        {index + 1}
+                      </div>
 
-                    {/* Kolom Nama Lengkap */}
-                    <div className="sm:col-span-4 flex items-center justify-between sm:justify-start gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="sm:hidden font-mono text-[11px] font-bold text-slate-400 w-5">
-                          #{index + 1}
-                        </span>
-                        <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 font-bold flex items-center justify-center shrink-0 text-xs shadow-2xs">
-                          {teacher.name.replace(/^(Ustadzah|Ustadz|Pak|Bu)\s+/i, '').charAt(0)}
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="font-bold text-slate-900 text-sm truncate group-hover:text-blue-700 transition-colors">
-                            {teacher.name}
-                          </h4>
-                          <span className="sm:hidden text-[10px] font-medium text-slate-500 block mt-0.5">
-                            {teacher.subject}
+                      {/* Kolom Nama Lengkap */}
+                      <div className="sm:col-span-3 flex items-center justify-between sm:justify-start gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="sm:hidden font-mono text-[11px] font-bold text-slate-400 w-5">
+                            #{index + 1}
                           </span>
+                          <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 font-bold flex items-center justify-center shrink-0 text-xs shadow-2xs">
+                            {teacher.name.replace(/^(Ustadzah|Ustadz|Pak|Bu)\s+/i, '').charAt(0)}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-slate-900 text-sm truncate group-hover:text-blue-700 transition-colors">
+                              {teacher.name}
+                            </h4>
+                            <span className="sm:hidden text-[10px] font-medium text-slate-500 block mt-0.5">
+                              {teacher.subject}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Mobile Actions */}
+                        <div className="flex sm:hidden items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => openEditTeacherModal(teacher)}
+                            className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit Data Guru"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Hapus data guru ${teacher.name}?`)) {
+                                deleteTeacher(teacher.id);
+                              }
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Hapus Data Guru"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
 
-                      {/* Mobile Actions */}
-                      <div className="flex sm:hidden items-center gap-1 shrink-0">
+                      {/* Kolom Mata Pelajaran */}
+                      <div className="mt-2 sm:mt-0 sm:col-span-2">
+                        <span
+                          className={`inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-md border ${getSubjectColorBadge(
+                            teacher.subject
+                          )}`}
+                        >
+                          {teacher.subject}
+                        </span>
+                      </div>
+
+                      {/* Kolom Status Pinjaman Alat */}
+                      <div className="mt-2 sm:mt-0 sm:col-span-2">
+                        <div className="sm:hidden text-[10px] font-semibold text-slate-500 mb-0.5">
+                          Status Pinjaman Alat:
+                        </div>
+                        {teacherBorrows.length > 0 ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                            Sedang Pinjam ({teacherBorrows.length} Alat)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-medium">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>Bebas Pinjaman</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Kolom Biometrik Fingerprint */}
+                      <div className="mt-2 sm:mt-0 sm:col-span-3">
+                        <div className="sm:hidden text-[10px] font-semibold text-slate-500 mb-0.5">
+                          Biometrik Fingerprint:
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextStatus = teacher.fingerprintStatus === 'Recorded' ? 'belum input' : 'Recorded';
+                            updateTeacher(teacher.id, { fingerprintStatus: nextStatus });
+                          }}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                            teacher.fingerprintStatus === 'Recorded'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
+                              : 'bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200'
+                          }`}
+                          title="Klik untuk mengubah status rekam fingerprint"
+                        >
+                          <Fingerprint className="w-3.5 h-3.5 shrink-0" />
+                          <span>{teacher.fingerprintStatus === 'Recorded' ? 'Recorded' : 'belum input'}</span>
+                        </button>
+                      </div>
+
+                      {/* Kolom Aksi (Desktop) */}
+                      <div className="hidden sm:flex sm:col-span-1 items-center justify-end gap-1">
                         <button
                           type="button"
                           onClick={() => openEditTeacherModal(teacher)}
-                          className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                           title="Edit Data Guru"
                         >
-                          <Edit3 className="w-3.5 h-3.5" />
+                          <Edit3 className="w-4 h-4" />
                         </button>
                         <button
                           type="button"
@@ -1006,66 +1096,15 @@ export const DatabaseGuruMuridView: React.FC = () => {
                               deleteTeacher(teacher.id);
                             }
                           }}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                           title="Hapus Data Guru"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
-
-                    {/* Kolom Mata Pelajaran */}
-                    <div className="hidden sm:block sm:col-span-3">
-                      <span
-                        className={`inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-md border ${getSubjectColorBadge(
-                          teacher.subject
-                        )}`}
-                      >
-                        {teacher.subject}
-                      </span>
-                    </div>
-
-                    {/* Kolom Catatan Tambahan */}
-                    <div className="mt-2 sm:mt-0 sm:col-span-3">
-                      <div className="sm:hidden text-[10px] font-semibold text-slate-500 mb-0.5">
-                        Catatan Tambahan:
-                      </div>
-                      {teacher.notes ? (
-                        <p className="text-slate-700 text-xs leading-relaxed bg-slate-50 sm:bg-transparent p-2 sm:p-0 rounded-lg border sm:border-0 border-slate-100">
-                          {teacher.notes}
-                        </p>
-                      ) : (
-                        <span className="text-slate-400 italic text-[11px]">
-                          Tidak ada catatan tambahan
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Kolom Aksi (Desktop) */}
-                    <div className="hidden sm:flex sm:col-span-1 items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => openEditTeacherModal(teacher)}
-                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Edit Data Guru"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (confirm(`Hapus data guru ${teacher.name}?`)) {
-                            deleteTeacher(teacher.id);
-                          }
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Hapus Data Guru"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1155,7 +1194,7 @@ export const DatabaseGuruMuridView: React.FC = () => {
                       <th className="px-5 py-3.5">Kelas</th>
                       <th className="px-5 py-3.5">Gender</th>
                       <th className="px-5 py-3.5">Status Pinjaman Alat</th>
-                      <th className="px-5 py-3.5">Status Pinjaman ruangan</th>
+                      <th className="px-5 py-3.5">Biometrik Fingerprint</th>
                       <th className="px-5 py-3.5 text-right">Aksi</th>
                     </tr>
                   </thead>
@@ -1197,17 +1236,20 @@ export const DatabaseGuruMuridView: React.FC = () => {
 
                           {/* Gender */}
                           <td className="px-5 py-3.5">
-                            {student.gender === 'L' ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-100 text-xs font-semibold">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                                Laki-laki (L)
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-pink-50 text-pink-700 border border-pink-100 text-xs font-semibold">
-                                <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
-                                Perempuan (P)
-                              </span>
-                            )}
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold font-mono ${
+                                student.gender === 'L'
+                                  ? 'bg-blue-50 text-blue-700 border border-blue-100'
+                                  : 'bg-pink-50 text-pink-700 border border-pink-100'
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  student.gender === 'L' ? 'bg-blue-500' : 'bg-pink-500'
+                                }`}
+                              ></span>
+                              {student.gender}
+                            </span>
                           </td>
 
                           {/* Status Pinjaman Alat */}
@@ -1236,32 +1278,24 @@ export const DatabaseGuruMuridView: React.FC = () => {
                             )}
                           </td>
 
-                          {/* Status Pinjaman ruangan */}
+                          {/* Biometrik Fingerprint */}
                           <td className="px-5 py-3.5">
-                            {roomLoan.isBorrowing ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setInspectStudentRoom({
-                                    student,
-                                    roomDetail: roomLoan.detail,
-                                  })
-                                }
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 text-purple-800 border border-purple-200 text-xs font-bold hover:bg-purple-100 transition-colors shadow-2xs cursor-pointer"
-                                title="Klik untuk melihat detail peminjaman ruangan"
-                              >
-                                <Building2 className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                                <span className="max-w-[170px] truncate">
-                                  Sedang Pinjam ({roomLoan.detail.split(' ')[0] || 'Ruangan'})
-                                </span>
-                                <Eye className="w-3.5 h-3.5 ml-0.5 text-purple-700" />
-                              </button>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-medium">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                <span>Bebas Pinjaman Ruangan</span>
-                              </span>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nextStatus = student.fingerprintStatus === 'Recorded' ? 'belum input' : 'Recorded';
+                                updateStudent(student.id, { fingerprintStatus: nextStatus });
+                              }}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                                student.fingerprintStatus === 'Recorded'
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200'
+                                  : 'bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200'
+                              }`}
+                              title="Klik untuk mengubah status rekam fingerprint"
+                            >
+                              <Fingerprint className="w-3.5 h-3.5 shrink-0" />
+                              <span>{student.fingerprintStatus === 'Recorded' ? 'Recorded' : 'belum input'}</span>
+                            </button>
                           </td>
 
                           {/* Aksi */}
@@ -1656,10 +1690,8 @@ export const DatabaseGuruMuridView: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Gender:</span>
-                    <span className="font-semibold text-slate-800">
-                      {inspectStudentRoom.student.gender === 'L'
-                        ? 'Laki-laki (Ikhwan)'
-                        : 'Perempuan (Akhwat)'}
+                    <span className="font-bold text-slate-800 font-mono">
+                      {inspectStudentRoom.student.gender}
                     </span>
                   </div>
                 </div>
@@ -1952,13 +1984,13 @@ export const DatabaseGuruMuridView: React.FC = () => {
                             </td>
                             <td className="p-2">
                               <span
-                                className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                                className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
                                   s.gender === 'L'
                                     ? 'bg-blue-100 text-blue-700'
                                     : 'bg-rose-100 text-rose-700'
                                 }`}
                               >
-                                {s.gender === 'L' ? 'Laki-laki (L)' : 'Perempuan (P)'}
+                                {s.gender}
                               </span>
                             </td>
                             <td className="p-2 font-medium text-slate-700">
