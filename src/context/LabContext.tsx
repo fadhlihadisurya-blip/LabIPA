@@ -35,6 +35,12 @@ import {
   Teacher,
   Student,
 } from '../types';
+
+export interface TelegramConfig {
+  botToken: string;
+  chatId: string;
+  enabled: boolean;
+}
 import {
   INITIAL_CHEMICALS,
   INITIAL_EQUIPMENT,
@@ -127,6 +133,10 @@ interface LabContextType {
 
   resetToDefaultData: () => Promise<void>;
   clearCurrentMonthBorrows: () => Promise<void>;
+
+  telegramConfig: TelegramConfig;
+  updateTelegramConfig: (config: TelegramConfig) => void;
+  sendTelegramMessage: (message: string) => Promise<boolean>;
 }
 
 const LabContext = createContext<LabContextType | undefined>(undefined);
@@ -146,6 +156,46 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [isFirebaseConnected, setIsFirebaseConnected] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  const [telegramConfig, setTelegramConfig] = useState<TelegramConfig>(() => {
+    const saved = localStorage.getItem('simlab_telegram_config');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // ignore
+      }
+    }
+    return { botToken: '', chatId: '', enabled: false };
+  });
+
+  const updateTelegramConfig = (config: TelegramConfig) => {
+    setTelegramConfig(config);
+    localStorage.setItem('simlab_telegram_config', JSON.stringify(config));
+  };
+
+  const sendTelegramMessage = async (message: string): Promise<boolean> => {
+    if (!telegramConfig.enabled || !telegramConfig.botToken || !telegramConfig.chatId) {
+      return false;
+    }
+    try {
+      const url = `https://api.telegram.org/bot${telegramConfig.botToken.trim()}/sendMessage`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: telegramConfig.chatId.trim(),
+          text: message,
+          parse_mode: 'HTML',
+        }),
+      });
+      const data = await res.json();
+      return data.ok === true;
+    } catch (err) {
+      console.error('Failed to send Telegram notification:', err);
+      return false;
+    }
+  };
 
   const [chemicals, setChemicals] = useState<Chemical[]>(INITIAL_CHEMICALS);
   const [equipment, setEquipment] = useState<Equipment[]>(INITIAL_EQUIPMENT);
@@ -584,6 +634,14 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newBorrow: BorrowRecord = { ...item, id, borrowDate: today };
     try {
       await setDoc(doc(db, 'borrows', id), cleanFirestoreData(newBorrow));
+      await sendTelegramMessage(
+        `🔔 <b>AJUAN PEMINJAMAN ALAT LAB BARU</b>\n\n` +
+        `👤 Peminjam: <b>${newBorrow.borrowerName}</b> (${newBorrow.borrowerType})\n` +
+        `📦 Alat: <b>${newBorrow.equipmentName}</b> (Jumlah: ${newBorrow.quantity})\n` +
+        `🏢 Kelas/Dept: ${newBorrow.classOrDept}\n` +
+        `📅 Rencana Kembali: ${newBorrow.returnDueDate}\n` +
+        `🎯 Keperluan: ${newBorrow.purpose}`
+      );
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `borrows/${id}`);
     }
@@ -759,6 +817,15 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     try {
       await setDoc(doc(db, 'visits', id), cleanFirestoreData(newVisit));
+      await sendTelegramMessage(
+        `🔔 <b>AJUAN KUNJUNGAN LABORATORIUM BARU</b>\n\n` +
+        `👤 Pengunjung: <b>${newVisit.teacherName}</b> (${newVisit.visitorType || 'Guru'})\n` +
+        `🔬 Lab: <b>${newVisit.labType}</b>\n` +
+        `📚 Mapel: <b>${newVisit.practicumSubject}</b>\n` +
+        `📝 Topik: ${newVisit.practicumTitle}\n` +
+        `📅 Tanggal: ${newVisit.visitDate} (${newVisit.sessionTime} - ${newVisit.endTime || '-'})\n` +
+        `🏢 Kelas/Rombel: ${newVisit.classGroup}`
+      );
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `visits/${id}`);
     }
@@ -802,6 +869,14 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     try {
       await setDoc(doc(db, 'chemical_requests', id), cleanFirestoreData(newReq));
+      const itemsSummary = newReq.items.map(i => `- ${i.chemicalName}: ${i.requestedAmount} ${i.unit}`).join('\n');
+      await sendTelegramMessage(
+        `🔔 <b>AJUAN BAHAN PRAKTIKUM BARU</b>\n\n` +
+        `👤 Pemohon: <b>${newReq.teacherName}</b>\n` +
+        `📝 Praktikum: ${newReq.practicumTitle}\n` +
+        `📅 Tanggal Butuh: ${newReq.dateNeeded}\n\n` +
+        `🧪 <b>Daftar Bahan:</b>\n${itemsSummary}`
+      );
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `chemical_requests/${id}`);
     }
@@ -995,6 +1070,9 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteStudent,
         resetToDefaultData,
         clearCurrentMonthBorrows,
+        telegramConfig,
+        updateTelegramConfig,
+        sendTelegramMessage,
       }}
     >
       {children}

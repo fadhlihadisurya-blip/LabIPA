@@ -76,6 +76,7 @@ export const AjuanKunjunganView: React.FC = () => {
   const [endDate, setEndDate] = useState('');
   const [endTime, setEndTime] = useState<string>('08.30');
   const [specialRequirements, setSpecialRequirements] = useState('');
+  const [isKbm, setIsKbm] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const comboboxRef = useRef<HTMLDivElement>(null);
@@ -164,6 +165,7 @@ export const AjuanKunjunganView: React.FC = () => {
   const openModal = () => {
     setVisitorType('Guru');
     setVisitorName('');
+    setIsKbm(true);
     setClassGroup('');
     setStudentCount(30);
     setPracticumTitle('');
@@ -195,7 +197,7 @@ export const AjuanKunjunganView: React.FC = () => {
       setFormError(`Mohon pilih atau masukkan Nama ${visitorType}`);
       return;
     }
-    if (visitorType === 'Guru' && !classGroup.trim()) {
+    if (visitorType === 'Guru' && isKbm && !classGroup.trim()) {
       setFormError('Mohon masukkan Kelas / Rombongan Belajar yang diajar');
       return;
     }
@@ -221,8 +223,8 @@ export const AjuanKunjunganView: React.FC = () => {
       visitorType,
       teacherName: visitorName.trim(),
       labType,
-      classGroup: visitorType === 'Guru' ? classGroup.trim() : (classGroup.trim() || 'Siswa Mandiri'),
-      studentCount: visitorType === 'Guru' ? (Number(studentCount) || 30) : 1,
+      classGroup: visitorType === 'Guru' ? (isKbm ? classGroup.trim() : 'Non-KBM / Guru') : (classGroup.trim() || 'Siswa Mandiri'),
+      studentCount: visitorType === 'Guru' ? (isKbm ? (Number(studentCount) || 30) : 0) : 1,
       practicumTitle: practicumTitle.trim(),
       practicumSubject,
       visitDate,
@@ -650,33 +652,54 @@ export const AjuanKunjunganView: React.FC = () => {
 
               {/* Kelas & Jumlah Siswa: HANYA MUNCUL JIKA PENGUNJUNG ADALAH GURU */}
               {visitorType === 'Guru' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-blue-50/50 rounded-xl border border-blue-100 animate-in fade-in duration-150">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Kelas / Rombongan Belajar *
-                    </label>
+                <div className="space-y-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100 animate-in fade-in duration-150">
+                  <div className="flex items-center gap-2 pb-1 border-b border-blue-100/60">
                     <input
-                      type="text"
-                      required
-                      value={classGroup}
-                      onChange={(e) => setClassGroup(e.target.value)}
-                      placeholder="Contoh: XI MIPA 1 (Putra)"
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                      type="checkbox"
+                      id="kbmCheckbox"
+                      checked={isKbm}
+                      onChange={(e) => setIsKbm(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
                     />
+                    <label htmlFor="kbmCheckbox" className="text-xs font-bold text-slate-800 cursor-pointer">
+                      KBM (Kegiatan Belajar Mengajar)
+                    </label>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Jumlah Siswa (Orang) *
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={60}
-                      value={studentCount}
-                      onChange={(e) => setStudentCount(Number(e.target.value))}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Kelas / Rombongan Belajar {isKbm ? '*' : ''}
+                      </label>
+                      <input
+                        type="text"
+                        required={isKbm}
+                        disabled={!isKbm}
+                        value={isKbm ? classGroup : ''}
+                        onChange={(e) => setClassGroup(e.target.value)}
+                        placeholder={isKbm ? "Contoh: XI MIPA 1 (Putra)" : "Non-KBM"}
+                        className={`w-full px-3 py-2 text-xs border border-slate-300 rounded-lg ${
+                          !isKbm ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'
+                        } focus:outline-hidden focus:ring-2 focus:ring-blue-500`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Jumlah Siswa (Orang) {isKbm ? '*' : ''}
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={60}
+                        disabled={!isKbm}
+                        value={isKbm ? studentCount : 0}
+                        onChange={(e) => setStudentCount(Number(e.target.value))}
+                        className={`w-full px-3 py-2 text-xs border border-slate-300 rounded-lg ${
+                          !isKbm ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-800'
+                        } focus:outline-hidden focus:ring-2 focus:ring-blue-500`}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
