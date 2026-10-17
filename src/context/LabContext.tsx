@@ -151,8 +151,37 @@ const DEFAULT_LABORAN: LaboranUser = {
 
 export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeSection, setActiveSection] = useState<LabSection>('dashboard');
-  const [userMode, setUserMode] = useState<UserMode>('laboran');
+  const [userMode, setUserMode] = useState<UserMode>('portal-umum');
   const [laboranUser, setLaboranUser] = useState<LaboranUser>(DEFAULT_LABORAN);
+
+  // 5 minutes inactivity timeout for laboran mode
+  useEffect(() => {
+    if (userMode !== 'laboran') return;
+
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      // 5 minutes = 300,000 ms
+      timeoutId = setTimeout(() => {
+        logoutLaboran();
+      }, 5 * 60 * 1000);
+    };
+
+    resetTimer();
+
+    const events = ['mousemove', 'mousedown', 'keypress', 'touchstart', 'scroll'];
+    events.forEach((event) => {
+      window.addEventListener(event, resetTimer);
+    });
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach((event) => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [userMode]);
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [isFirebaseConnected, setIsFirebaseConnected] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
