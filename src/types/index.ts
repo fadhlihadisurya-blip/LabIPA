@@ -64,6 +64,14 @@ export interface BorrowItem {
   quantity: number;
 }
 
+export interface DamagedItemReport {
+  equipmentId: string;
+  equipmentName: string;
+  quantity: number;
+  damageType?: string;
+  notes?: string;
+}
+
 export interface BorrowRecord {
   id: string;
   borrowerName: string;
@@ -74,6 +82,7 @@ export interface BorrowRecord {
   equipmentName: string;
   quantity: number;
   items?: BorrowItem[];
+  damagedItems?: DamagedItemReport[];
   borrowDate: string; // YYYY-MM-DD
   returnDueDate: string; // YYYY-MM-DD
   actualReturnDate?: string;
@@ -89,15 +98,18 @@ export interface BorrowRecord {
 
 export interface VisitRequest {
   id: string;
+  visitorType?: 'Guru' | 'Murid';
   teacherName: string;
-  contactNumber: string;
+  contactNumber?: string;
   labType: 'Lab Kimia' | 'Lab Fisika' | 'Lab Biologi' | 'Lab IPA Terpadu';
   classGroup: string;
-  studentCount: number;
+  studentCount?: number;
   practicumTitle: string;
   practicumSubject: 'Fisika' | 'Kimia' | 'Biologi' | 'IPA Terpadu';
   visitDate: string;
   sessionTime: string;
+  endDate?: string;
+  endTime?: string;
   status: 'Menunggu Persetujuan' | 'Disetujui' | 'Ditolak' | 'Selesai';
   specialRequirements?: string;
   laboranNotes?: string;

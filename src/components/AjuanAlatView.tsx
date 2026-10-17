@@ -18,7 +18,14 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
-import { BorrowRecord, BorrowItem } from '../types';
+import { BorrowRecord, BorrowItem, DamagedItemReport } from '../types';
+
+interface DamagedSelection {
+  selected: boolean;
+  quantity: number;
+  damageType: string;
+  notes: string;
+}
 
 export const AjuanAlatView: React.FC = () => {
   const {
@@ -41,6 +48,7 @@ export const AjuanAlatView: React.FC = () => {
   const [returningRecord, setReturningRecord] = useState<BorrowRecord | null>(null);
   const [returnCondition, setReturnCondition] = useState<'Kembali (Baik)' | 'Kembali (Rusak/Pecah)'>('Kembali (Baik)');
   const [returnNotes, setReturnNotes] = useState('');
+  const [damagedSelections, setDamagedSelections] = useState<{ [eqId: string]: DamagedSelection }>({});
   const [deletingRecord, setDeletingRecord] = useState<BorrowRecord | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -252,13 +260,83 @@ export const AjuanAlatView: React.FC = () => {
     setIsDropdownOpen(false);
   };
 
+  const returningLoanItems: BorrowItem[] = returningRecord
+    ? returningRecord.items && returningRecord.items.length > 0
+      ? returningRecord.items
+      : [
+          {
+            equipmentId: returningRecord.equipmentId,
+            equipmentName: returningRecord.equipmentName,
+            quantity: returningRecord.quantity,
+          },
+        ]
+    : [];
+
+  const openReturnModal = (record: BorrowRecord) => {
+    setReturningRecord(record);
+    setReturnCondition('Kembali (Baik)');
+    setReturnNotes('');
+
+    const loanItems: BorrowItem[] =
+      record.items && record.items.length > 0
+        ? record.items
+        : [
+            {
+              equipmentId: record.equipmentId,
+              equipmentName: record.equipmentName,
+              quantity: record.quantity,
+            },
+          ];
+
+    const initialSelections: { [eqId: string]: DamagedSelection } = {};
+    loanItems.forEach((item) => {
+      initialSelections[item.equipmentId] = {
+        selected: false,
+        quantity: 1,
+        damageType: 'Pecah / Retak',
+        notes: '',
+      };
+    });
+    setDamagedSelections(initialSelections);
+  };
+
   const handleReturnSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!returningRecord) return;
 
-    returnBorrow(returningRecord.id, returnCondition, returnNotes.trim() || undefined);
+    let damagedReportList: DamagedItemReport[] = [];
+    if (returnCondition === 'Kembali (Rusak/Pecah)') {
+      const selectedIds = Object.keys(damagedSelections).filter(
+        (id) => damagedSelections[id]?.selected
+      );
+
+      if (selectedIds.length === 0) {
+        alert('Mohon centang dan pilih minimal satu alat yang mengalami kerusakan.');
+        return;
+      }
+
+      damagedReportList = selectedIds.map((id) => {
+        const itemInfo = returningLoanItems.find((it) => it.equipmentId === id);
+        const detail = damagedSelections[id];
+        return {
+          equipmentId: id,
+          equipmentName: itemInfo?.equipmentName || id,
+          quantity: detail.quantity || 1,
+          damageType: detail.damageType || 'Pecah / Retak',
+          notes: detail.notes.trim() || undefined,
+        };
+      });
+    }
+
+    returnBorrow(
+      returningRecord.id,
+      returnCondition,
+      returnNotes.trim() || undefined,
+      damagedReportList.length > 0 ? damagedReportList : undefined
+    );
     setReturningRecord(null);
     setReturnNotes('');
+    setDamagedSelections({});
   };
 
   const handleDeleteConfirm = async () => {
@@ -420,11 +498,28 @@ export const AjuanAlatView: React.FC = () => {
                             Menunggu Persetujuan
                           </span>
                         )}
-                        {record.status.startsWith('Kembali') && (
+                        {record.status === 'Kembali (Baik)' && (
                           <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
                             <CheckCircle2 className="w-3 h-3" />
-                            {record.status}
+                            Kembali (Baik)
                           </span>
+                        )}
+                        {record.status === 'Kembali (Rusak/Pecah)' && (
+                          <div className="space-y-1">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-md border border-rose-200">
+                              <AlertTriangle className="w-3 h-3" />
+                              Kembali (Rusak)
+                            </span>
+                            {record.damagedItems && record.damagedItems.length > 0 && (
+                              <div className="text-[10px] text-rose-600 font-medium">
+                                {record.damagedItems.map((d, i) => (
+                                  <div key={i} className="truncate max-w-[170px]" title={`${d.quantity}x ${d.equipmentName} (${d.damageType || 'Rusak'})`}>
+                                    • {d.quantity}x {d.equipmentName}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
                         {record.status === 'Ditolak' && (
                           <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-md border border-rose-200">
@@ -457,7 +552,7 @@ export const AjuanAlatView: React.FC = () => {
                             {record.status === 'Dipinjam' && (
                               <button
                                 type="button"
-                                onClick={() => setReturningRecord(record)}
+                                onClick={() => openReturnModal(record)}
                                 className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-md transition-colors cursor-pointer text-[11px]"
                               >
                                 <RotateCcw className="w-3 h-3" />
@@ -491,10 +586,11 @@ export const AjuanAlatView: React.FC = () => {
       {/* Modal: Return Equipment */}
       {returningRecord && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-              <h4 className="font-bold text-slate-900 text-sm">
-                Verifikasi Pengembalian Alat
+              <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <RotateCcw className="w-4 h-4 text-indigo-600" />
+                <span>Verifikasi Pengembalian Alat</span>
               </h4>
               <button
                 type="button"
@@ -506,10 +602,30 @@ export const AjuanAlatView: React.FC = () => {
             </div>
 
             <form onSubmit={handleReturnSubmit} className="space-y-4 text-xs">
-              <div className="p-3 bg-slate-50 rounded-xl space-y-1 border border-slate-200">
-                <div className="font-bold text-slate-900">{returningRecord.borrowerName}</div>
-                <div className="text-slate-600">Alat: {returningRecord.equipmentName} ({returningRecord.quantity} unit)</div>
-                <div className="text-slate-500 font-mono text-[11px]">Jatuh Tempo: {returningRecord.returnDueDate}</div>
+              <div className="p-3 bg-slate-50 rounded-xl space-y-1.5 border border-slate-200">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900">{returningRecord.borrowerName}</span>
+                  <span className="text-[11px] font-mono text-slate-500">ID: {returningRecord.idNumber}</span>
+                </div>
+                <div className="text-slate-700 font-medium text-[11px]">
+                  Daftar Alat yang Dipinjam ({returningLoanItems.length} jenis alat):
+                </div>
+                <div className="space-y-1 pt-0.5">
+                  {returningLoanItems.map((it, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between text-slate-600 bg-white px-2.5 py-1 rounded-md border border-slate-200/70"
+                    >
+                      <span className="font-medium text-slate-800">{it.equipmentName}</span>
+                      <span className="font-mono font-bold text-slate-700 text-[11px]">
+                        {it.quantity} unit
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-slate-500 font-mono text-[11px] pt-1 border-t border-slate-200/60">
+                  Jatuh Tempo: {returningRecord.returnDueDate}
+                </div>
               </div>
 
               <div>
@@ -519,22 +635,177 @@ export const AjuanAlatView: React.FC = () => {
                 <select
                   value={returnCondition}
                   onChange={(e) => setReturnCondition(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white font-semibold text-slate-800"
+                  className={`w-full px-3 py-2 border rounded-lg bg-white font-semibold transition-colors ${
+                    returnCondition === 'Kembali (Rusak/Pecah)'
+                      ? 'border-rose-300 text-rose-800 bg-rose-50/30'
+                      : 'border-slate-300 text-slate-800'
+                  }`}
                 >
                   <option value="Kembali (Baik)">Kembali (Kondisi Baik & Lengkap)</option>
                   <option value="Kembali (Rusak/Pecah)">Kembali (Ada Kerusakan / Pecah / Hilang)</option>
                 </select>
               </div>
 
+              {/* Multi-tool Damaged Selection */}
+              {returnCondition === 'Kembali (Rusak/Pecah)' && (
+                <div className="p-3.5 bg-rose-50/70 rounded-xl border border-rose-200/90 space-y-3 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-rose-800 font-bold text-xs">
+                      <AlertTriangle className="w-4 h-4 text-rose-600" />
+                      <span>Pilih Alat yang Mengalami Kerusakan:</span>
+                    </div>
+                    <span className="text-[10px] text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full font-semibold">
+                      Bisa pilih &gt; 1 alat
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-600 leading-tight">
+                    Centang alat di bawah ini yang rusak/pecah/hilang, kemudian tentukan jumlah unit dan jenis kerusakannya:
+                  </p>
+
+                  <div className="space-y-2.5">
+                    {returningLoanItems.map((item) => {
+                      const detail = damagedSelections[item.equipmentId] || {
+                        selected: false,
+                        quantity: 1,
+                        damageType: 'Pecah / Retak',
+                        notes: '',
+                      };
+
+                      return (
+                        <div
+                          key={item.equipmentId}
+                          className={`p-3 rounded-xl border transition-all ${
+                            detail.selected
+                              ? 'bg-white border-rose-400 shadow-xs ring-1 ring-rose-200'
+                              : 'bg-white/80 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={detail.selected}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setDamagedSelections((prev) => ({
+                                  ...prev,
+                                  [item.equipmentId]: {
+                                    ...detail,
+                                    selected: checked,
+                                    quantity: detail.quantity || 1,
+                                  },
+                                }));
+                              }}
+                              className="mt-0.5 rounded text-rose-600 focus:ring-rose-500 w-4 h-4 cursor-pointer"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span
+                                  className={`font-bold text-xs ${
+                                    detail.selected ? 'text-rose-900' : 'text-slate-800'
+                                  }`}
+                                >
+                                  {item.equipmentName}
+                                </span>
+                                <span className="font-mono text-[10px] font-semibold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                                  Dipinjam: {item.quantity} unit
+                                </span>
+                              </div>
+                            </div>
+                          </label>
+
+                          {detail.selected && (
+                            <div className="mt-3 pt-2.5 border-t border-rose-100 grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                                  Jumlah Unit Rusak (Maks: {item.quantity}) *
+                                </label>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={item.quantity}
+                                  value={detail.quantity}
+                                  onChange={(e) => {
+                                    const val = Math.min(
+                                      item.quantity,
+                                      Math.max(1, parseInt(e.target.value) || 1)
+                                    );
+                                    setDamagedSelections((prev) => ({
+                                      ...prev,
+                                      [item.equipmentId]: {
+                                        ...detail,
+                                        quantity: val,
+                                      },
+                                    }));
+                                  }}
+                                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono font-bold text-rose-700 focus:outline-none focus:border-rose-500"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                                  Jenis Kerusakan
+                                </label>
+                                <select
+                                  value={detail.damageType}
+                                  onChange={(e) => {
+                                    setDamagedSelections((prev) => ({
+                                      ...prev,
+                                      [item.equipmentId]: {
+                                        ...detail,
+                                        damageType: e.target.value,
+                                      },
+                                    }));
+                                  }}
+                                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:border-rose-500"
+                                >
+                                  <option value="Pecah / Retak">Pecah / Retak</option>
+                                  <option value="Patah / Bengkok">Patah / Bengkok</option>
+                                  <option value="Hilang / Tidak Kembali">Hilang / Tidak Kembali</option>
+                                  <option value="Malfungsi / Rusak Total">Malfungsi / Rusak Total</option>
+                                  <option value="Komponen Kurang">Komponen Kurang / Tidak Lengkap</option>
+                                  <option value="Lainnya">Lainnya</option>
+                                </select>
+                              </div>
+
+                              <div className="sm:col-span-2">
+                                <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                  Keterangan Tambahan Kerusakan (Opsional)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={detail.notes}
+                                  onChange={(e) => {
+                                    setDamagedSelections((prev) => ({
+                                      ...prev,
+                                      [item.equipmentId]: {
+                                        ...detail,
+                                        notes: e.target.value,
+                                      },
+                                    }));
+                                  }}
+                                  placeholder="Contoh: Pecah saat dicuci di wastafel lab..."
+                                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-slate-800 text-[11px] focus:outline-none focus:border-rose-500"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Catatan Kondisi / Kerusakan (Opsional)
+                  Catatan Pengembalian Umum (Opsional)
                 </label>
                 <textarea
                   rows={2}
                   value={returnNotes}
                   onChange={(e) => setReturnNotes(e.target.value)}
-                  placeholder="Contoh: Tabung reaksi retak 1 buah..."
+                  placeholder="Catatan umum proses pengembalian oleh peminjam..."
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white"
                 />
               </div>
@@ -549,9 +820,10 @@ export const AjuanAlatView: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs cursor-pointer"
+                  className="px-5 py-2 font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
-                  Konfirmasi Kembali
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Konfirmasi Pengembalian</span>
                 </button>
               </div>
             </form>

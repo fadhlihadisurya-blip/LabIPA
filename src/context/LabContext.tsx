@@ -26,6 +26,8 @@ import {
   Chemical,
   Equipment,
   BorrowRecord,
+  BorrowItem,
+  DamagedItemReport,
   VisitRequest,
   ChemicalRequest,
   MSDSItem,
@@ -78,7 +80,7 @@ interface LabContextType {
   deleteChemical: (id: string) => Promise<void>;
 
   equipment: Equipment[];
-  addEquipment: (item: Omit<Equipment, 'id'>) => Promise<void>;
+  addEquipment: (item: Omit<Equipment, 'id'>, customId?: string) => Promise<void>;
   updateEquipment: (id: string, item: Partial<Equipment>) => Promise<void>;
   deleteEquipment: (id: string) => Promise<void>;
 
@@ -88,7 +90,8 @@ interface LabContextType {
   returnBorrow: (
     id: string,
     condition: 'Kembali (Baik)' | 'Kembali (Rusak/Pecah)',
-    notes?: string
+    notes?: string,
+    damagedItems?: DamagedItemReport[]
   ) => Promise<void>;
   rejectBorrow: (id: string, reason?: string) => Promise<void>;
   deleteBorrow: (id: string) => Promise<void>;
@@ -100,6 +103,7 @@ interface LabContextType {
     status: VisitRequest['status'],
     laboranNotes?: string
   ) => Promise<void>;
+  deleteVisit: (id: string) => Promise<void>;
 
   chemicalRequests: ChemicalRequest[];
   addChemicalRequest: (
@@ -547,8 +551,8 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Equipment Actions
-  const addEquipment = async (item: Omit<Equipment, 'id'>) => {
-    const id = `eq-${Date.now()}`;
+  const addEquipment = async (item: Omit<Equipment, 'id'>, customId?: string) => {
+    const id = customId || `eq-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const newEq: Equipment = { ...item, id };
     try {
       await setDoc(doc(db, 'equipment', id), cleanFirestoreData(newEq));
@@ -593,12 +597,25 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await updateDoc(doc(db, 'borrows', id), { status: 'Dipinjam' });
 
       // decrement good count & increment borrowed count
-      const eqTarget = equipment.find((e) => e.id === target.equipmentId);
-      if (eqTarget) {
-        await updateDoc(doc(db, 'equipment', eqTarget.id), {
-          goodCount: Math.max(0, eqTarget.goodCount - target.quantity),
-          borrowedCount: eqTarget.borrowedCount + target.quantity,
-        });
+      const loanItems: BorrowItem[] =
+        target.items && target.items.length > 0
+          ? target.items
+          : [
+              {
+                equipmentId: target.equipmentId,
+                equipmentName: target.equipmentName,
+                quantity: target.quantity,
+              },
+            ];
+
+      for (const item of loanItems) {
+        const eqTarget = equipment.find((e) => e.id === item.equipmentId);
+        if (eqTarget) {
+          await updateDoc(doc(db, 'equipment', eqTarget.id), {
+            goodCount: Math.max(0, eqTarget.goodCount - item.quantity),
+            borrowedCount: eqTarget.borrowedCount + item.quantity,
+          });
+        }
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `borrows/${id}`);
@@ -608,7 +625,8 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const returnBorrow = async (
     id: string,
     condition: 'Kembali (Baik)' | 'Kembali (Rusak/Pecah)',
-    notes?: string
+    notes?: string,
+    damagedItems?: DamagedItemReport[]
   ) => {
     const target = borrows.find((b) => b.id === id);
     if (!target) return;
@@ -619,25 +637,57 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         status: condition,
         actualReturnDate: today,
       };
+
+      if (damagedItems && damagedItems.length > 0) {
+        updates.damagedItems = damagedItems;
+      }
+
+      let combinedNotes = target.notes || '';
+      if (condition === 'Kembali (Rusak/Pecah)' && damagedItems && damagedItems.length > 0) {
+        const damageSummary = damagedItems
+          .map((d) => `${d.quantity}x ${d.equipmentName}${d.damageType ? ` (${d.damageType})` : ''}`)
+          .join(', ');
+        combinedNotes = `${combinedNotes} [Kerusakan: ${damageSummary}]`.trim();
+      }
       if (notes && notes.trim()) {
-        updates.notes = `${target.notes || ''} [Pengembalian: ${notes.trim()}]`.trim();
-      } else if (target.notes) {
-        updates.notes = target.notes;
+        combinedNotes = `${combinedNotes} [Pengembalian: ${notes.trim()}]`.trim();
+      }
+      if (combinedNotes) {
+        updates.notes = combinedNotes;
       }
 
       await updateDoc(doc(db, 'borrows', id), cleanFirestoreData(updates));
 
-      const eqTarget = equipment.find((e) => e.id === target.equipmentId);
-      if (eqTarget) {
-        if (condition === 'Kembali (Baik)') {
+      const loanItems: BorrowItem[] =
+        target.items && target.items.length > 0
+          ? target.items
+          : [
+              {
+                equipmentId: target.equipmentId,
+                equipmentName: target.equipmentName,
+                quantity: target.quantity,
+              },
+            ];
+
+      for (const item of loanItems) {
+        const eqTarget = equipment.find((e) => e.id === item.equipmentId);
+        if (eqTarget) {
+          const dmgRecord =
+            condition === 'Kembali (Rusak/Pecah)'
+              ? damagedItems?.find((d) => d.equipmentId === item.equipmentId)
+              : undefined;
+
+          const damagedQty = dmgRecord
+            ? Math.min(item.quantity, dmgRecord.quantity)
+            : condition === 'Kembali (Rusak/Pecah)' && (!damagedItems || damagedItems.length === 0)
+            ? item.quantity
+            : 0;
+          const goodQty = Math.max(0, item.quantity - damagedQty);
+
           await updateDoc(doc(db, 'equipment', eqTarget.id), {
-            borrowedCount: Math.max(0, eqTarget.borrowedCount - target.quantity),
-            goodCount: eqTarget.goodCount + target.quantity,
-          });
-        } else {
-          await updateDoc(doc(db, 'equipment', eqTarget.id), {
-            borrowedCount: Math.max(0, eqTarget.borrowedCount - target.quantity),
-            damagedCount: eqTarget.damagedCount + target.quantity,
+            borrowedCount: Math.max(0, eqTarget.borrowedCount - item.quantity),
+            goodCount: eqTarget.goodCount + goodQty,
+            damagedCount: eqTarget.damagedCount + damagedQty,
           });
         }
       }
@@ -727,6 +777,14 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await updateDoc(doc(db, 'visits', id), cleanFirestoreData(updates));
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `visits/${id}`);
+    }
+  };
+
+  const deleteVisit = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'visits', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `visits/${id}`);
     }
   };
 
@@ -920,6 +978,7 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         visits,
         addVisit,
         updateVisitStatus,
+        deleteVisit,
         chemicalRequests,
         addChemicalRequest,
         approveChemicalRequest,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   CalendarDays,
   Plus,
@@ -12,12 +12,50 @@ import {
   X,
   Printer,
   CalendarCheck,
+  ChevronDown,
+  GraduationCap,
+  UserCheck,
+  Trash2,
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
 import { VisitRequest } from '../types';
 
+export const START_TIME_OPTIONS = [
+  '07.00',
+  '07.30',
+  '08.00',
+  '08.30',
+  '09.00',
+  '09.30',
+  '10.00',
+  '10.30',
+  '11.00',
+  '11.30',
+  '12.00',
+  '12.30',
+  '13.00',
+  '13.30',
+  '14.00',
+  '14.30',
+  '15.00',
+  '15.30',
+  '16.00',
+  '16.30',
+  '17.00',
+  '17.30',
+  '18.00',
+  '18.30',
+  '19.00',
+  '19.30',
+  '20.00',
+  '20.30',
+  '21.00',
+  '21.30',
+  '22.00',
+];
+
 export const AjuanKunjunganView: React.FC = () => {
-  const { visits, addVisit, updateVisitStatus, userMode } = useLab();
+  const { visits, addVisit, updateVisitStatus, deleteVisit, userMode, teachers, students } = useLab();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [labFilter, setLabFilter] = useState<string>('all');
@@ -26,22 +64,126 @@ export const AjuanKunjunganView: React.FC = () => {
   const [selectedVisitForPrint, setSelectedVisitForPrint] = useState<VisitRequest | null>(null);
 
   // Form state
-  const [teacherName, setTeacherName] = useState('');
-  const [contactNumber, setContactNumber] = useState('');
+  const [visitorType, setVisitorType] = useState<'Guru' | 'Murid'>('Guru');
+  const [visitorName, setVisitorName] = useState('');
   const [labType, setLabType] = useState<VisitRequest['labType']>('Lab Kimia');
   const [classGroup, setClassGroup] = useState('');
   const [studentCount, setStudentCount] = useState<number>(30);
   const [practicumTitle, setPracticumTitle] = useState('');
   const [practicumSubject, setPracticumSubject] = useState<VisitRequest['practicumSubject']>('Kimia');
   const [visitDate, setVisitDate] = useState('');
-  const [sessionTime, setSessionTime] = useState('07.30 - 09.00 (Sesi 1)');
+  const [sessionTime, setSessionTime] = useState<string>('07.00');
+  const [endDate, setEndDate] = useState('');
+  const [endTime, setEndTime] = useState<string>('08.30');
   const [specialRequirements, setSpecialRequirements] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const comboboxRef = useRef<HTMLDivElement>(null);
+
+  // Close combobox when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (comboboxRef.current && !comboboxRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleVisitorTypeChange = (type: 'Guru' | 'Murid') => {
+    setVisitorType(type);
+    setVisitorName('');
+    setClassGroup('');
+    setIsDropdownOpen(false);
+    setFormError(null);
+  };
+
+  // Filter visitors from teachers or students database
+  const filteredVisitors =
+    visitorType === 'Guru'
+      ? teachers.filter((t) => {
+          if (!visitorName) return true;
+          const q = visitorName.toLowerCase();
+          return (
+            t.name.toLowerCase().includes(q) ||
+            (t.subject && t.subject.toLowerCase().includes(q)) ||
+            (t.nip && t.nip.toLowerCase().includes(q))
+          );
+        })
+      : students.filter((s) => {
+          if (!visitorName) return true;
+          const q = visitorName.toLowerCase();
+          return (
+            s.name.toLowerCase().includes(q) ||
+            (s.classGroup && s.classGroup.toLowerCase().includes(q)) ||
+            (s.nis && s.nis.toLowerCase().includes(q))
+          );
+        });
+
+  const handleSelectVisitor = (name: string, extra?: string) => {
+    setVisitorName(name);
+    if (visitorType === 'Murid') {
+      const student = students.find((s) => s.name.toLowerCase() === name.toLowerCase());
+      if (student) {
+        setClassGroup(student.classGroup || 'Siswa Mandiri');
+      } else if (extra) {
+        setClassGroup(extra);
+      } else {
+        setClassGroup('Siswa Mandiri');
+      }
+    } else {
+      const teacher = teachers.find((t) => t.name.toLowerCase() === name.toLowerCase());
+      if (teacher && teacher.subject) {
+        if (/kimia/i.test(teacher.subject)) {
+          setPracticumSubject('Kimia');
+          setLabType('Lab Kimia');
+        } else if (/fisika/i.test(teacher.subject)) {
+          setPracticumSubject('Fisika');
+          setLabType('Lab Fisika');
+        } else if (/biologi/i.test(teacher.subject)) {
+          setPracticumSubject('Biologi');
+          setLabType('Lab Biologi');
+        } else if (/ipa/i.test(teacher.subject)) {
+          setPracticumSubject('IPA Terpadu');
+          setLabType('Lab IPA Terpadu');
+        }
+      }
+    }
+    setIsDropdownOpen(false);
+    setFormError(null);
+  };
+
+  const handleVisitDateChange = (val: string) => {
+    setVisitDate(val);
+    if (!endDate || endDate < val) {
+      setEndDate(val);
+    }
+  };
+
+  const openModal = () => {
+    setVisitorType('Guru');
+    setVisitorName('');
+    setClassGroup('');
+    setStudentCount(30);
+    setPracticumTitle('');
+    setPracticumSubject('Kimia');
+    setLabType('Lab Kimia');
+    setVisitDate('');
+    setEndDate('');
+    setSessionTime('07.00');
+    setEndTime('08.30');
+    setSpecialRequirements('');
+    setFormError(null);
+    setIsDropdownOpen(false);
+    setIsModalOpen(true);
+  };
 
   const filteredVisits = visits.filter((v) => {
     const matchesSearch =
       v.teacherName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       v.practicumTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.classGroup.toLowerCase().includes(searchQuery.toLowerCase());
+      (v.classGroup && v.classGroup.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesLab = labFilter === 'all' || v.labType === labFilter;
     const matchesStatus = statusFilter === 'all' || v.status === statusFilter;
     return matchesSearch && matchesLab && matchesStatus;
@@ -49,21 +191,44 @@ export const AjuanKunjunganView: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!teacherName || !classGroup || !practicumTitle || !visitDate) {
-      alert('Mohon lengkapi formulir pengajuan kunjungan');
+    if (!visitorName.trim()) {
+      setFormError(`Mohon pilih atau masukkan Nama ${visitorType}`);
+      return;
+    }
+    if (visitorType === 'Guru' && !classGroup.trim()) {
+      setFormError('Mohon masukkan Kelas / Rombongan Belajar yang diajar');
+      return;
+    }
+    if (!practicumTitle.trim()) {
+      setFormError('Mohon isi Judul Praktikum / Topik Percobaan');
+      return;
+    }
+    if (!visitDate) {
+      setFormError('Mohon tentukan Tanggal Peminjaman');
       return;
     }
 
+    const finalEndDate = endDate || visitDate;
+    if (finalEndDate < visitDate) {
+      setFormError('Tanggal Selesai tidak boleh lebih awal dari Tanggal Peminjaman');
+      return;
+    }
+
+    const formattedTime = sessionTime.includes('WIB') ? sessionTime : `${sessionTime} WIB`;
+    const formattedEndTime = endTime.includes('WIB') ? endTime : `${endTime} WIB`;
+
     const visitPayload: Omit<VisitRequest, 'id' | 'status' | 'createdAt'> = {
-      teacherName,
-      contactNumber: contactNumber || '0812-XXXX-XXXX',
+      visitorType,
+      teacherName: visitorName.trim(),
       labType,
-      classGroup,
-      studentCount: Number(studentCount) || 30,
-      practicumTitle,
+      classGroup: visitorType === 'Guru' ? classGroup.trim() : (classGroup.trim() || 'Siswa Mandiri'),
+      studentCount: visitorType === 'Guru' ? (Number(studentCount) || 30) : 1,
+      practicumTitle: practicumTitle.trim(),
       practicumSubject,
       visitDate,
-      sessionTime,
+      sessionTime: formattedTime,
+      endDate: finalEndDate,
+      endTime: formattedEndTime,
     };
     if (specialRequirements.trim()) {
       visitPayload.specialRequirements = specialRequirements.trim();
@@ -73,11 +238,13 @@ export const AjuanKunjunganView: React.FC = () => {
 
     setIsModalOpen(false);
     // Reset form
-    setTeacherName('');
+    setVisitorName('');
     setClassGroup('');
     setPracticumTitle('');
     setVisitDate('');
+    setEndDate('');
     setSpecialRequirements('');
+    setFormError(null);
   };
 
   return (
@@ -95,8 +262,8 @@ export const AjuanKunjunganView: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-2xs shrink-0"
+          onClick={openModal}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-2xs shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Ajukan Kunjungan Baru</span>
@@ -111,7 +278,7 @@ export const AjuanKunjunganView: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari guru, materi praktikum, kelas..."
+            placeholder="Cari guru/murid, materi praktikum, kelas..."
             className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:bg-white"
           />
         </div>
@@ -172,30 +339,65 @@ export const AjuanKunjunganView: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-slate-600">
+                  <div className="flex flex-wrap items-center gap-y-1.5 gap-x-4 text-xs text-slate-600">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-medium text-slate-800">{item.teacherName}</span>
+                      <span className="font-semibold text-slate-800">{item.teacherName}</span>
+                      {item.visitorType && (
+                        <span
+                          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                            item.visitorType === 'Murid'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-blue-50 text-blue-700 border border-blue-200'
+                          }`}
+                        >
+                          {item.visitorType}
+                        </span>
+                      )}
                     </div>
-                    <span>·</span>
-                    <div className="flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{item.classGroup} ({item.studentCount} siswa)</span>
-                    </div>
+                    {item.classGroup &&
+                      item.classGroup !== '-' &&
+                      item.classGroup !== 'Guru Pengampu' && (
+                        <>
+                          <span>·</span>
+                          <div className="flex items-center gap-1.5">
+                            <Users className="w-3.5 h-3.5 text-slate-400" />
+                            <span>
+                              {item.classGroup}
+                              {item.visitorType !== 'Murid' && item.studentCount && item.studentCount > 0
+                                ? ` (${item.studentCount} siswa)`
+                                : ''}
+                            </span>
+                          </div>
+                        </>
+                      )}
                     <span>·</span>
                     <div className="flex items-center gap-1.5">
                       <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
-                      <span className="font-mono tabular-nums">{item.visitDate}</span>
+                      <span>
+                        Tgl Peminjaman:{' '}
+                        <strong className="font-mono tabular-nums text-slate-700">
+                          {item.visitDate}
+                          {item.endDate && item.endDate !== item.visitDate ? ` s/d ${item.endDate}` : ''}
+                        </strong>
+                      </span>
                     </div>
                     <span>·</span>
                     <div className="flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{item.sessionTime}</span>
+                      <span>
+                        Jam:{' '}
+                        <strong className="font-mono text-slate-700">
+                          {item.sessionTime}
+                          {item.endTime ? ` - ${item.endTime}` : ''}
+                        </strong>
+                      </span>
                     </div>
                   </div>
 
                   {item.specialRequirements && (
                     <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                      <span className="font-medium text-slate-700">Kebutuhan Alat/Reagen:</span> {item.specialRequirements}
+                      <span className="font-medium text-slate-700">Kebutuhan Alat/Reagen:</span>{' '}
+                      {item.specialRequirements}
                     </p>
                   )}
 
@@ -231,30 +433,53 @@ export const AjuanKunjunganView: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Laboran verification buttons */}
-                  {userMode === 'laboran' && item.status === 'Menunggu Persetujuan' && (
-                    <div className="flex items-center gap-1.5 mt-2">
+                  {/* Laboran verification and management buttons */}
+                  {userMode === 'laboran' && (
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                      {item.status === 'Menunggu Persetujuan' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const note = prompt(
+                              'Catatan persetujuan dari Laboran (opsional):',
+                              'Ruang lab dan alat siap digunakan'
+                            );
+                            updateVisitStatus(item.id, 'Disetujui', note || undefined);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-medium transition-colors cursor-pointer"
+                        >
+                          <Check className="w-3.5 h-3.5" /> Setujui
+                        </button>
+                      )}
+
+                      {item.status !== 'Ditolak' && item.status !== 'Selesai' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const reason = prompt(
+                              'Alasan penolakan / pembatalan ajuan:',
+                              'Jadwal bentrok atau kegiatan lab dibatalkan'
+                            );
+                            if (reason !== null) {
+                              updateVisitStatus(item.id, 'Ditolak', reason || 'Ditolak oleh Laboran');
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-md text-xs font-medium transition-colors cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" /> Tolak
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => {
-                          const note = prompt('Catatan persetujuan dari Laboran (opsional):', 'Ruang lab dan alat siap digunakan');
-                          updateVisitStatus(item.id, 'Disetujui', note || undefined);
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-medium transition-colors"
-                      >
-                        <Check className="w-3.5 h-3.5" /> Setujui
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const reason = prompt('Alasan penolakan / jadwal bentrok:', 'Jadwal bentrok dengan kelas lain');
-                          if (reason) {
-                            updateVisitStatus(item.id, 'Ditolak', reason);
+                          if (window.confirm(`Hapus ajuan kunjungan "${item.practicumTitle}" (${item.teacherName})?`)) {
+                            deleteVisit(item.id);
                           }
                         }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-md text-xs font-medium transition-colors"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-md text-xs font-medium transition-colors cursor-pointer"
                       >
-                        <X className="w-3.5 h-3.5" /> Tolak
+                        <Trash2 className="w-3.5 h-3.5 text-slate-500" /> Hapus
                       </button>
                     </div>
                   )}
@@ -263,7 +488,7 @@ export const AjuanKunjunganView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setSelectedVisitForPrint(item)}
-                    className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 transition-colors mt-1"
+                    className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 transition-colors mt-1 cursor-pointer"
                   >
                     <Printer className="w-3 h-3" /> Cetak Bukti Jadwal
                   </button>
@@ -285,42 +510,94 @@ export const AjuanKunjunganView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1"
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
+            {formError && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs flex items-center justify-between">
+                <span>{formError}</span>
+                <button
+                  type="button"
+                  onClick={() => setFormError(null)}
+                  className="text-red-400 hover:text-red-700 ml-2"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+              {/* Tipe Pengunjung dan Nama dari Database Guru / Murid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Nama Guru / Penanggung Jawab *
+                    Tipe Pengunjung *
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={teacherName}
-                    onChange={(e) => setTeacherName(e.target.value)}
-                    placeholder="Contoh: Ustadz Ahmad Fauzi, M.Pd"
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  />
+                  <select
+                    value={visitorType}
+                    onChange={(e) => handleVisitorTypeChange(e.target.value as 'Guru' | 'Murid')}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-semibold bg-white text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="Guru">Guru / Staf Pengajar</option>
+                    <option value="Murid">Murid / Siswa</option>
+                  </select>
                 </div>
 
-                <div>
+                {/* Searchable Combobox for Nama Guru / Murid */}
+                <div className="relative" ref={comboboxRef}>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Nomor WhatsApp / HP
+                    {visitorType === 'Guru' ? 'Nama Guru *' : 'Nama Murid *'} (Ketik atau pilih)
                   </label>
-                  <input
-                    type="text"
-                    value={contactNumber}
-                    onChange={(e) => setContactNumber(e.target.value)}
-                    placeholder="Contoh: 0812-3456-7890"
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={visitorName}
+                      onChange={(e) => {
+                        setVisitorName(e.target.value);
+                        setIsDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsDropdownOpen(true)}
+                      placeholder={`Ketik nama ${visitorType === 'Guru' ? 'guru' : 'siswa'}...`}
+                      className="w-full px-3 py-2 pr-8 text-xs border border-slate-300 rounded-lg font-semibold bg-white text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    />
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+
+                  {isDropdownOpen && filteredVisitors.length > 0 && (
+                    <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                      {filteredVisitors.map((p) => {
+                        const name = p.name;
+                        const sub =
+                          visitorType === 'Murid'
+                            ? (p as any).classGroup
+                            : (p as any).subject;
+                        const identifier =
+                          visitorType === 'Murid'
+                            ? (p as any).nis
+                            : (p as any).nip;
+                        return (
+                          <div
+                            key={p.id}
+                            onClick={() => handleSelectVisitor(name, sub)}
+                            className="px-3 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs border-b border-slate-100 last:border-0 transition-colors"
+                          >
+                            <span className="font-bold text-slate-800">{name}</span>
+                            <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                              {sub} {identifier ? `— ${identifier}` : ''}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
 
+              {/* Lab Tujuan & Mata Pelajaran */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -344,7 +621,9 @@ export const AjuanKunjunganView: React.FC = () => {
                   </label>
                   <select
                     value={practicumSubject}
-                    onChange={(e) => setPracticumSubject(e.target.value as VisitRequest['practicumSubject'])}
+                    onChange={(e) =>
+                      setPracticumSubject(e.target.value as VisitRequest['practicumSubject'])
+                    }
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="Kimia">Kimia</option>
@@ -369,71 +648,115 @@ export const AjuanKunjunganView: React.FC = () => {
                 />
               </div>
 
+              {/* Kelas & Jumlah Siswa: HANYA MUNCUL JIKA PENGUNJUNG ADALAH GURU */}
+              {visitorType === 'Guru' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-blue-50/50 rounded-xl border border-blue-100 animate-in fade-in duration-150">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Kelas / Rombongan Belajar *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={classGroup}
+                      onChange={(e) => setClassGroup(e.target.value)}
+                      placeholder="Contoh: XI MIPA 1 (Putra)"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Jumlah Siswa (Orang) *
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={studentCount}
+                      onChange={(e) => setStudentCount(Number(e.target.value))}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Tanggal Peminjaman & Jam Mulai */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Kelas / Rombongan Belajar *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={classGroup}
-                    onChange={(e) => setClassGroup(e.target.value)}
-                    placeholder="Contoh: XI MIPA 1 (Putra)"
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Jumlah Siswa (Orang) *
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={60}
-                    value={studentCount}
-                    onChange={(e) => setStudentCount(Number(e.target.value))}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Tanggal Praktikum *
+                    Tanggal Peminjaman *
                   </label>
                   <input
                     type="date"
                     required
                     value={visitDate}
-                    onChange={(e) => setVisitDate(e.target.value)}
+                    onChange={(e) => handleVisitDateChange(e.target.value)}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Jam Sesi *
+                    Jam Mulai *
                   </label>
                   <select
                     value={sessionTime}
                     onChange={(e) => setSessionTime(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono font-medium focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="07.30 - 09.00 (Sesi 1)">07.30 - 09.00 (Sesi 1)</option>
-                    <option value="09.15 - 10.45 (Sesi 2)">09.15 - 10.45 (Sesi 2)</option>
-                    <option value="11.00 - 12.00 (Sesi 3)">11.00 - 12.00 (Sesi 3)</option>
-                    <option value="13.00 - 14.30 (Sesi 4)">13.00 - 14.30 (Sesi 4)</option>
-                    <option value="15.30 - 17.00 (Ekstrakulikuler KIR)">15.30 - 17.00 (Ekstrakulikuler KIR)</option>
+                    {START_TIME_OPTIONS.map((time) => (
+                      <option key={time} value={time}>
+                        {time} WIB
+                      </option>
+                    ))}
                   </select>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Waktu mulai sesi dari 07.00 s/d 22.00
+                  </p>
+                </div>
+              </div>
+
+              {/* Tanggal Selesai & Jam Selesai */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Tanggal Selesai *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={endDate}
+                    min={visitDate || undefined}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Jam Selesai *
+                  </label>
+                  <select
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono font-medium focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                  >
+                    {START_TIME_OPTIONS.map((time) => (
+                      <option key={time} value={time}>
+                        {time} WIB
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Waktu selesai sesi kunjungan / praktikum
+                  </p>
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Kebutuhan Khusus / Persiapan Alat & Bahan Tambahan
+                  Kebutuhan Khusus / Persiapan Alat & Bahan Tambahan (Opsional)
                 </label>
                 <textarea
                   rows={2}
@@ -448,15 +771,15 @@ export const AjuanKunjunganView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-800"
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs"
+                  className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs cursor-pointer"
                 >
-                  Kirim Ajuan
+                  Kirim Ajuan Kunjungan
                 </button>
               </div>
             </form>
@@ -475,7 +798,7 @@ export const AjuanKunjunganView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedVisitForPrint(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -483,33 +806,70 @@ export const AjuanKunjunganView: React.FC = () => {
 
             <div className="py-4 space-y-3 text-xs">
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/60 space-y-1">
-                <p className="font-bold text-sm text-slate-900">{selectedVisitForPrint.practicumTitle}</p>
-                <p className="text-slate-600 font-medium">{selectedVisitForPrint.labType} · Mapel {selectedVisitForPrint.practicumSubject}</p>
+                <p className="font-bold text-sm text-slate-900">
+                  {selectedVisitForPrint.practicumTitle}
+                </p>
+                <p className="text-slate-600 font-medium">
+                  {selectedVisitForPrint.labType} · Mapel {selectedVisitForPrint.practicumSubject}
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-slate-600">
                 <div>
-                  <span className="text-slate-400 block text-[11px]">Guru Pengampu:</span>
-                  <span className="font-semibold text-slate-800">{selectedVisitForPrint.teacherName}</span>
+                  <span className="text-slate-400 block text-[11px]">
+                    {selectedVisitForPrint.visitorType === 'Murid'
+                      ? 'Nama Siswa/Peminjam:'
+                      : 'Guru Pengampu:'}
+                  </span>
+                  <span className="font-semibold text-slate-800">
+                    {selectedVisitForPrint.teacherName}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-[11px]">Kelas & Siswa:</span>
-                  <span className="font-semibold text-slate-800">{selectedVisitForPrint.classGroup} ({selectedVisitForPrint.studentCount} siswa)</span>
+                  <span className="text-slate-400 block text-[11px]">
+                    {selectedVisitForPrint.visitorType === 'Murid' ? 'Kelas Siswa:' : 'Rombel / Kelas:'}
+                  </span>
+                  <span className="font-semibold text-slate-800">
+                    {selectedVisitForPrint.classGroup}
+                    {selectedVisitForPrint.visitorType !== 'Murid' &&
+                    selectedVisitForPrint.studentCount &&
+                    selectedVisitForPrint.studentCount > 0
+                      ? ` (${selectedVisitForPrint.studentCount} siswa)`
+                      : ''}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-[11px]">Tanggal Praktikum:</span>
-                  <span className="font-semibold text-slate-800">{selectedVisitForPrint.visitDate}</span>
+                  <span className="text-slate-400 block text-[11px]">Tanggal Peminjaman:</span>
+                  <span className="font-semibold text-slate-800">
+                    {selectedVisitForPrint.visitDate}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-[11px]">Waktu Sesi:</span>
-                  <span className="font-semibold text-slate-800">{selectedVisitForPrint.sessionTime}</span>
+                  <span className="text-slate-400 block text-[11px]">Tanggal Selesai:</span>
+                  <span className="font-semibold text-slate-800">
+                    {selectedVisitForPrint.endDate || selectedVisitForPrint.visitDate}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[11px]">Jam Mulai:</span>
+                  <span className="font-semibold text-slate-800">
+                    {selectedVisitForPrint.sessionTime}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[11px]">Jam Selesai:</span>
+                  <span className="font-semibold text-slate-800">
+                    {selectedVisitForPrint.endTime || '-'}
+                  </span>
                 </div>
               </div>
 
               {selectedVisitForPrint.specialRequirements && (
                 <div>
                   <span className="text-slate-400 block text-[11px]">Kebutuhan Khusus:</span>
-                  <p className="text-slate-700 bg-slate-50 p-2 rounded border border-slate-100">{selectedVisitForPrint.specialRequirements}</p>
+                  <p className="text-slate-700 bg-slate-50 p-2 rounded border border-slate-100">
+                    {selectedVisitForPrint.specialRequirements}
+                  </p>
                 </div>
               )}
 
@@ -524,7 +884,7 @@ export const AjuanKunjunganView: React.FC = () => {
                 onClick={() => {
                   window.print();
                 }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
               >
                 <Printer className="w-3.5 h-3.5" /> Cetak Lembar Slip
               </button>
