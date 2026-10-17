@@ -200,7 +200,7 @@ export const AjuanAlatView: React.FC = () => {
     const matchesType = borrowerTypeFilter === 'all' || b.borrowerType === borrowerTypeFilter;
 
     return matchesSearch && matchesStatus && matchesType;
-  });
+  }).sort((a, b) => (b.borrowDate || '').localeCompare(a.borrowDate || '') || b.id.localeCompare(a.id));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -189,7 +189,7 @@ export const AjuanKunjunganView: React.FC = () => {
     const matchesLab = labFilter === 'all' || v.labType === labFilter;
     const matchesStatus = statusFilter === 'all' || v.status === statusFilter;
     return matchesSearch && matchesLab && matchesStatus;
-  });
+  }).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '') || b.id.localeCompare(a.id));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

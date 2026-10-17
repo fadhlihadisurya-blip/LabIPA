@@ -104,7 +104,7 @@ export const AjuanBahanView: React.FC = () => {
       (r.requesterType && r.requesterType.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
     return matchesSearch && matchesStatus;
-  });
+  }).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '') || b.id.localeCompare(a.id));
 
   const handleAddItemRow = () => {
     const firstChem = chemicals[0];

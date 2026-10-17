@@ -59,16 +59,14 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
       </div>
 
       <div className="flex items-center gap-2.5">
-        {/* Portal Umum / Mode Laboran Pill Button - Matching image.png */}
-        <button
-          type="button"
-          onClick={toggleUserMode}
-          className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all shadow-2xs border ${
+        {/* Portal Umum / Mode Laboran Status Indicator */}
+        <div
+          className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium shadow-2xs border ${
             userMode === 'portal-umum'
-              ? 'bg-slate-100/90 text-slate-700 border-slate-200 hover:bg-slate-200/80'
-              : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+              ? 'bg-slate-100/90 text-slate-700 border-slate-200'
+              : 'bg-emerald-50 text-emerald-800 border-emerald-200'
           }`}
-          title="Klik untuk beralih mode akses"
+          title={`Status Mode saat ini: ${userMode === 'portal-umum' ? 'Portal Umum' : 'Mode Laboran'}`}
         >
           <span
             className={`w-2 h-2 rounded-full ${
@@ -83,7 +81,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
           ) : (
             <User className="w-3.5 h-3.5 text-slate-400 ml-0.5" />
           )}
-        </button>
+        </div>
       </div>
 
       <TelegramSettingsModal

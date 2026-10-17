@@ -18,7 +18,7 @@ export const LaboranAuthModal: React.FC = () => {
     loginWithEmailPassword,
   } = useLab();
 
-  const [email, setEmail] = useState('fadhlihadisurya@gmail.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -115,17 +115,10 @@ export const LaboranAuthModal: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-3.5">
           <div>
-            <div className="flex items-center justify-between mb-1">
+            <div className="mb-1">
               <label className="block text-xs font-semibold text-slate-700">
                 Alamat Email Laboran
               </label>
-              <button
-                type="button"
-                onClick={() => setEmail('fadhlihadisurya@gmail.com')}
-                className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Gunakan fadhlihadisurya@gmail.com
-              </button>
             </div>
             <div className="relative">
               <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -134,7 +127,7 @@ export const LaboranAuthModal: React.FC = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="nama@email.com"
+                placeholder="Masukkan Email"
                 className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono"
               />
             </div>
