@@ -59,17 +59,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
       </div>
 
       <div className="flex items-center gap-2.5">
-        {/* Telegram Bot Settings Button */}
-        <button
-          type="button"
-          onClick={() => setIsTelegramModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer shadow-2xs"
-          title="Konfigurasi Bot Telegram Notifikasi"
-        >
-          <Bot className="w-3.5 h-3.5 text-blue-600" />
-          <span className="hidden sm:inline font-semibold">Bot Telegram</span>
-        </button>
-
         {/* Portal Umum / Mode Laboran Pill Button - Matching image.png */}
         <button
           type="button"

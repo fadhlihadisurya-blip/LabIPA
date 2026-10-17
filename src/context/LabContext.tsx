@@ -175,22 +175,14 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const sendTelegramMessage = async (message: string): Promise<boolean> => {
-    if (!telegramConfig.enabled || !telegramConfig.botToken || !telegramConfig.chatId) {
-      return false;
-    }
     try {
-      const url = `https://api.telegram.org/bot${telegramConfig.botToken.trim()}/sendMessage`;
-      const res = await fetch(url, {
+      const res = await fetch('/api/telegram', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: telegramConfig.chatId.trim(),
-          text: message,
-          parse_mode: 'HTML',
-        }),
+        body: JSON.stringify({ message }),
       });
       const data = await res.json();
-      return data.ok === true;
+      return data.success === true;
     } catch (err) {
       console.error('Failed to send Telegram notification:', err);
       return false;
