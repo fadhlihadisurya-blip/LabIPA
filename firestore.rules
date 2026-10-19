@@ -14,7 +14,7 @@ service cloud.firestore {
     // Chemicals Collection
     match /chemicals/{chemicalId} {
       allow read: if true;
-      allow write: if isValidId(chemicalId)
+      allow create, update: if isValidId(chemicalId)
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 200
@@ -22,12 +22,13 @@ service cloud.firestore {
         && request.resource.data.code.size() <= 50
         && request.resource.data.stock is number
         && request.resource.data.stock >= 0;
+      allow delete: if isValidId(chemicalId);
     }
 
     // Equipment Collection
     match /equipment/{equipmentId} {
       allow read: if true;
-      allow write: if isValidId(equipmentId)
+      allow create, update: if isValidId(equipmentId)
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 200
@@ -35,6 +36,7 @@ service cloud.firestore {
         && request.resource.data.code.size() <= 50
         && request.resource.data.totalCount is number
         && request.resource.data.totalCount >= 0;
+      allow delete: if isValidId(equipmentId);
     }
 
     // Equipment Borrows Collection
