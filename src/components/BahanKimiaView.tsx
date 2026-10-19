@@ -759,16 +759,14 @@ export const BahanKimiaView: React.FC = () => {
                             <FileText className="w-3.5 h-3.5" />
                           </button>
 
-                          {userMode === 'laboran' && (
-                            <button
-                              type="button"
-                              onClick={() => setChemicalToDelete(c)}
-                              className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                              title="Hapus Bahan"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setChemicalToDelete(c)}
+                            className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                            title="Hapus Bahan"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
