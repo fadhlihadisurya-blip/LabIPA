@@ -436,7 +436,7 @@ export const DatabaseGuruMuridView: React.FC = () => {
       'Nama Siswa',
       'NIS',
       'Kelas',
-      'Jenis kelamin',
+      'Jenis Kelamin',
       'Status Siswa',
     ];
     const rows = filteredStudents.map((s, idx) => {
@@ -486,7 +486,7 @@ export const DatabaseGuruMuridView: React.FC = () => {
     const csvContent =
       '\uFEFF' +
       [
-        'Nama Siswa,NIS,Kelas,Jenis kelamin,Status Siswa',
+        'Nama Siswa,NIS,Kelas,Jenis Kelamin,Status Siswa',
         '"Ahmad Fauzi","212210001","10 Abu Bakar","L","Aktif"',
         '"Fatimah Azzahra","212210002","10 Umar","P","Aktif"',
         '"Muhammad Zaki","212210003","11 MIPA 1","L","Aktif"',
@@ -616,24 +616,17 @@ export const DatabaseGuruMuridView: React.FC = () => {
 
           if (hasHeader) {
             headerRow.forEach((h, idx) => {
-              if (h.includes('nama') || h.includes('siswa') || h.includes('murid'))
+              if (h === 'nama siswa' || h === 'nama' || h === 'siswa' || h === 'murid') {
                 nameIdx = idx;
-              else if (h.includes('nis') || h.includes('induk'))
+              } else if (h === 'nis' || h === 'nomor induk' || h === 'nisn') {
                 nisIdx = idx;
-              else if (
-                h.includes('kelas') ||
-                h.includes('rombel') ||
-                h.includes('class')
-              )
+              } else if (h === 'kelas' || h === 'rombel' || h === 'class') {
                 classIdx = idx;
-              else if (
-                h.includes('gender') ||
-                h.includes('kelamin') ||
-                h.includes('jk')
-              )
+              } else if (h === 'jenis kelamin' || h === 'kelamin' || h === 'gender' || h === 'jk') {
                 genderIdx = idx;
-              else if (h.includes('status'))
+              } else if (h === 'status siswa' || h === 'status') {
                 statusIdx = idx;
+              }
             });
           }
 
