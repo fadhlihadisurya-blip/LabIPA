@@ -168,9 +168,12 @@ export const BahanKimiaView: React.FC = () => {
   const { chemicals, addChemical, updateChemical, adjustChemicalStock, deleteChemical, setActiveSection, userMode } = useLab();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [hazardFilter, setHazardFilter] = useState<string>('all');
   const [formFilter, setFormFilter] = useState<string>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingChem, setEditingChem] = useState<Chemical | null>(null);
+  const [editFormError, setEditFormError] = useState<string | null>(null);
   const [adjustingChem, setAdjustingChem] = useState<Chemical | null>(null);
   const [adjustAmount, setAdjustAmount] = useState<number>(100);
   const [adjustType, setAdjustType] = useState<'add' | 'subtract'>('add');
@@ -187,6 +190,7 @@ export const BahanKimiaView: React.FC = () => {
 
   // New chemical form state - otomatis terisi kode terkecil BHM-KIM-xxx yang belum terpakai
   const [code, setCode] = useState(() => getNextChemicalCode(chemicals));
+  const [category, setCategory] = useState<'Biokim Putra' | 'Fisika Putri' | 'Biokim Putri'>('Biokim Putra');
   const [name, setName] = useState('');
   const [formula, setFormula] = useState('');
   const [casNumber, setCasNumber] = useState('');
@@ -208,6 +212,7 @@ export const BahanKimiaView: React.FC = () => {
 
   const openAddModal = () => {
     setCode(getNextChemicalCode(chemicals));
+    setCategory('Biokim Putra');
     setName('');
     setFormula('');
     setCasNumber('');
@@ -223,17 +228,79 @@ export const BahanKimiaView: React.FC = () => {
     setIsAddModalOpen(true);
   };
 
+  const openEditModal = (chem: Chemical) => {
+    setEditingChem({
+      ...chem,
+      category: chem.category || 'Biokim Putra',
+      hazards: chem.hazards || ['safe'],
+    });
+    setEditFormError(null);
+  };
+
+  const handleEditHazardToggle = (hazard: HazardType) => {
+    if (!editingChem) return;
+    const currentHazards = editingChem.hazards || [];
+    let updated: HazardType[];
+    if (currentHazards.includes(hazard)) {
+      updated = currentHazards.filter((h) => h !== hazard);
+    } else {
+      updated = [...currentHazards, hazard];
+    }
+    setEditingChem({
+      ...editingChem,
+      hazards: updated.length > 0 ? updated : ['safe'],
+    });
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingChem) return;
+
+    if (!editingChem.name.trim() || !editingChem.formula.trim()) {
+      setEditFormError('Mohon isi nama bahan kimia dan rumus kimia.');
+      return;
+    }
+    if (!editingChem.code.trim()) {
+      setEditFormError('Mohon isi kode bahan kimia.');
+      return;
+    }
+
+    try {
+      await updateChemical(editingChem.id, {
+        code: editingChem.code.trim(),
+        category: editingChem.category || 'Biokim Putra',
+        name: editingChem.name.trim(),
+        formula: editingChem.formula.trim(),
+        casNumber: editingChem.casNumber.trim() || '-',
+        form: editingChem.form,
+        stock: Number(editingChem.stock) || 0,
+        unit: editingChem.unit,
+        minStock: Number(editingChem.minStock) || 50,
+        location: editingChem.location.trim() || 'Rak Laboratorium',
+        hazards: editingChem.hazards && editingChem.hazards.length > 0 ? editingChem.hazards : ['safe'],
+        expiryDate: editingChem.expiryDate || '2028-01-01',
+        notes: editingChem.notes?.trim() || '',
+      });
+      setEditingChem(null);
+      setEditFormError(null);
+    } catch (err: any) {
+      setEditFormError(err?.message || 'Gagal memperbarui data bahan kimia.');
+    }
+  };
+
   const filteredChemicals = chemicals.filter((c) => {
     const matchesSearch =
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.formula.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.casNumber.toLowerCase().includes(searchQuery.toLowerCase());
+      c.casNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.category && c.category.toLowerCase().includes(searchQuery.toLowerCase()));
 
+    const matchesCategory = categoryFilter === 'all' || c.category === categoryFilter;
     const matchesForm = formFilter === 'all' || c.form === formFilter;
     const matchesHazard = hazardFilter === 'all' || c.hazards.includes(hazardFilter as HazardType);
 
-    return matchesSearch && matchesForm && matchesHazard;
+    return matchesSearch && matchesCategory && matchesForm && matchesHazard;
   });
 
   const handleHazardToggle = (hazard: HazardType) => {
@@ -257,6 +324,7 @@ export const BahanKimiaView: React.FC = () => {
 
     const newChemicalPayload: Omit<Chemical, 'id'> = {
       code: code.trim(),
+      category,
       name: name.trim(),
       formula: formula.trim(),
       casNumber: casNumber.trim() || '-',
@@ -295,6 +363,7 @@ export const BahanKimiaView: React.FC = () => {
   const exportCsv = () => {
     const headers = [
       'Kode Bahan',
+      'Kategori Lab',
       'Nama Bahan',
       'Rumus Kimia',
       'No CAS',
@@ -309,6 +378,7 @@ export const BahanKimiaView: React.FC = () => {
     ];
     const rows = filteredChemicals.map((c) => [
       c.code,
+      `"${c.category || 'Biokim Putra'}"`,
       `"${c.name}"`,
       `"${c.formula}"`,
       c.casNumber,
@@ -339,11 +409,11 @@ export const BahanKimiaView: React.FC = () => {
     const csvContent =
       '\uFEFF' +
       [
-        'Kode Bahan,Nama Bahan,Rumus Kimia,No CAS,Wujud,Stok,Satuan,Batas Min,Lokasi,Kadaluarsa,Bahaya,Catatan',
-        'BHM-KIM-012,"Asam Klorida (HCl) 37%",HCl,7647-01-0,Cair,1000,mL,250,"Lemari Asam B3",2028-12-31,korosif,"Simpan di lemari berventilasi khusus"',
-        'BHM-KIM-013,"Natrium Hidroksida (NaOH) Pelet",NaOH,1310-73-2,Padat,500,gram,100,"Rak Basa Padat",2029-06-30,korosif,"Higroskopis, tutup rapat"',
-        'BHM-KIM-014,"Etanol (C2H5OH) 96%",C2H5OH,64-17-5,Cair,2000,mL,500,"Lemari Flammable",2027-10-15,"flammable, irritant","Jauhkan dari percikan api"',
-        'BHM-KIM-015,"Indikator Fenolftalein (PP) 1%",C20H14O4,77-09-8,Indikator,250,mL,50,"Rak Indikator & Pewarna",2029-12-31,safe,"Tray larutan indikator praktikum"',
+        'Kode Bahan,Kategori Lab,Nama Bahan,Rumus Kimia,No CAS,Wujud,Stok,Satuan,Batas Min,Lokasi,Kadaluarsa,Bahaya,Catatan',
+        'BHM-KIM-012,"Biokim Putra","Asam Klorida (HCl) 37%",HCl,7647-01-0,Cair,1000,mL,250,"Lemari Asam B3",2028-12-31,korosif,"Simpan di lemari berventilasi khusus"',
+        'BHM-KIM-013,"Biokim Putri","Natrium Hidroksida (NaOH) Pelet",NaOH,1310-73-2,Padat,500,gram,100,"Rak Basa Padat",2029-06-30,korosif,"Higroskopis, tutup rapat"',
+        'BHM-KIM-014,"Fisika Putri","Etanol (C2H5OH) 96%",C2H5OH,64-17-5,Cair,2000,mL,500,"Lemari Flammable",2027-10-15,"flammable, irritant","Jauhkan dari percikan api"',
+        'BHM-KIM-015,"Biokim Putri","Indikator Fenolftalein (PP) 1%",C20H14O4,77-09-8,Indikator,250,mL,50,"Rak Indikator & Pewarna",2029-12-31,safe,"Tray larutan indikator praktikum"',
       ].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -391,6 +461,7 @@ export const BahanKimiaView: React.FC = () => {
         );
 
         let codeIdx = -1;
+        let categoryIdx = -1;
         let nameIdx = -1;
         let formulaIdx = -1;
         let casIdx = -1;
@@ -406,6 +477,7 @@ export const BahanKimiaView: React.FC = () => {
         if (hasHeader) {
           headerRow.forEach((h, idx) => {
             if (h.includes('kode') || h.includes('code')) codeIdx = idx;
+            else if (h.includes('kategori') || h.includes('category') || h.includes('lab')) categoryIdx = idx;
             else if (h.includes('nama') || h.includes('name') || h.includes('reagen')) nameIdx = idx;
             else if (h.includes('rumus') || h.includes('formula')) formulaIdx = idx;
             else if (h.includes('cas')) casIdx = idx;
@@ -429,18 +501,49 @@ export const BahanKimiaView: React.FC = () => {
         }
 
         // Positional fallback if columns are not found in header
-        if (codeIdx === -1) codeIdx = 0;
-        if (nameIdx === -1) nameIdx = 1;
-        if (formulaIdx === -1) formulaIdx = 2;
-        if (casIdx === -1) casIdx = 3;
-        if (formIdx === -1) formIdx = 4;
-        if (stockIdx === -1) stockIdx = 5;
-        if (unitIdx === -1) unitIdx = 6;
-        if (minStockIdx === -1) minStockIdx = 7;
-        if (locationIdx === -1) locationIdx = 8;
-        if (expiryIdx === -1) expiryIdx = 9;
-        if (hazardIdx === -1) hazardIdx = 10;
-        if (notesIdx === -1) notesIdx = 11;
+        if (categoryIdx === -1) {
+          if (rows[0] && rows[0].length >= 13) {
+            categoryIdx = 1;
+            if (codeIdx === -1) codeIdx = 0;
+            if (nameIdx === -1) nameIdx = 2;
+            if (formulaIdx === -1) formulaIdx = 3;
+            if (casIdx === -1) casIdx = 4;
+            if (formIdx === -1) formIdx = 5;
+            if (stockIdx === -1) stockIdx = 6;
+            if (unitIdx === -1) unitIdx = 7;
+            if (minStockIdx === -1) minStockIdx = 8;
+            if (locationIdx === -1) locationIdx = 9;
+            if (expiryIdx === -1) expiryIdx = 10;
+            if (hazardIdx === -1) hazardIdx = 11;
+            if (notesIdx === -1) notesIdx = 12;
+          } else {
+            if (codeIdx === -1) codeIdx = 0;
+            if (nameIdx === -1) nameIdx = 1;
+            if (formulaIdx === -1) formulaIdx = 2;
+            if (casIdx === -1) casIdx = 3;
+            if (formIdx === -1) formIdx = 4;
+            if (stockIdx === -1) stockIdx = 5;
+            if (unitIdx === -1) unitIdx = 6;
+            if (minStockIdx === -1) minStockIdx = 7;
+            if (locationIdx === -1) locationIdx = 8;
+            if (expiryIdx === -1) expiryIdx = 9;
+            if (hazardIdx === -1) hazardIdx = 10;
+            if (notesIdx === -1) notesIdx = 11;
+          }
+        } else {
+          if (codeIdx === -1) codeIdx = 0;
+          if (nameIdx === -1) nameIdx = categoryIdx === 1 ? 2 : 1;
+          if (formulaIdx === -1) formulaIdx = nameIdx + 1;
+          if (casIdx === -1) casIdx = formulaIdx + 1;
+          if (formIdx === -1) formIdx = casIdx + 1;
+          if (stockIdx === -1) stockIdx = formIdx + 1;
+          if (unitIdx === -1) unitIdx = stockIdx + 1;
+          if (minStockIdx === -1) minStockIdx = unitIdx + 1;
+          if (locationIdx === -1) locationIdx = minStockIdx + 1;
+          if (expiryIdx === -1) expiryIdx = locationIdx + 1;
+          if (hazardIdx === -1) hazardIdx = expiryIdx + 1;
+          if (notesIdx === -1) notesIdx = hazardIdx + 1;
+        }
 
         const dataRows = hasHeader ? rows.slice(1) : rows;
         const parsed: Omit<Chemical, 'id'>[] = [];
@@ -450,6 +553,19 @@ export const BahanKimiaView: React.FC = () => {
           if (!row || row.length === 0) continue;
           const rawName = (row[nameIdx] || '').trim().replace(/^["']|["']$/g, '');
           if (!rawName) continue;
+
+          let parsedCategory: 'Biokim Putra' | 'Fisika Putri' | 'Biokim Putri' = 'Biokim Putra';
+          if (categoryIdx !== -1 && categoryIdx < row.length) {
+            const rawCat = (row[categoryIdx] || '').trim().replace(/^["']|["']$/g, '');
+            const lowerCat = rawCat.toLowerCase();
+            if (lowerCat.includes('fisika')) {
+              parsedCategory = 'Fisika Putri';
+            } else if (lowerCat.includes('putri')) {
+              parsedCategory = 'Biokim Putri';
+            } else if (lowerCat.includes('putra') || lowerCat.includes('biokim')) {
+              parsedCategory = 'Biokim Putra';
+            }
+          }
 
           const rawFormula = (row[formulaIdx] || '').trim().replace(/^["']|["']$/g, '') || '-';
           const rawCas = (row[casIdx] || '').trim().replace(/^["']|["']$/g, '') || '-';
@@ -470,6 +586,7 @@ export const BahanKimiaView: React.FC = () => {
 
           const newChem: Omit<Chemical, 'id'> = {
             code: itemCode,
+            category: parsedCategory,
             name: rawName,
             formula: rawFormula,
             casNumber: rawCas,
@@ -645,6 +762,17 @@ export const BahanKimiaView: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-medium focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Semua Kategori Lab</option>
+            <option value="Biokim Putra">Biokim Putra</option>
+            <option value="Fisika Putri">Fisika Putri</option>
+            <option value="Biokim Putri">Biokim Putri</option>
+          </select>
+
+          <select
             value={formFilter}
             onChange={(e) => setFormFilter(e.target.value)}
             className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
@@ -678,6 +806,7 @@ export const BahanKimiaView: React.FC = () => {
             <thead className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
                 <th className="px-5 py-3.5">Kode & Bahan Kimia</th>
+                <th className="px-3 py-3.5">Kategori Lab</th>
                 <th className="px-3 py-3.5">Rumus / CAS</th>
                 <th className="px-3 py-3.5">Wujud</th>
                 <th className="px-4 py-3.5 text-right">Stok Fisik</th>
@@ -690,7 +819,7 @@ export const BahanKimiaView: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {filteredChemicals.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                  <td colSpan={9} className="py-12 text-center text-slate-400">
                     Tidak ada bahan kimia yang sesuai dengan pencarian atau filter.
                   </td>
                 </tr>
@@ -702,6 +831,21 @@ export const BahanKimiaView: React.FC = () => {
                       <td className="px-5 py-3.5">
                         <div className="font-semibold text-slate-900 text-xs">{c.name}</div>
                         <div className="text-[11px] font-mono text-slate-400">{c.code}</div>
+                      </td>
+                      <td className="px-3 py-3.5 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border ${
+                            c.category === 'Biokim Putra'
+                              ? 'bg-blue-50 text-blue-700 border-blue-200'
+                              : c.category === 'Fisika Putri'
+                              ? 'bg-purple-50 text-purple-700 border-purple-200'
+                              : c.category === 'Biokim Putri'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-slate-50 text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          {c.category || 'Biokim Putra'}
+                        </span>
                       </td>
                       <td className="px-3 py-3.5 whitespace-nowrap">
                         <span className="font-mono font-medium text-slate-800">{c.formula}</span>
@@ -749,6 +893,18 @@ export const BahanKimiaView: React.FC = () => {
                             <ArrowUpDown className="w-3.5 h-3.5" />
                           </button>
 
+                          {/* Edit button */}
+                          {userMode === 'laboran' && (
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(c)}
+                              className="p-1 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                              title="Edit Data Bahan"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
                           {/* Quick link to MSDS */}
                           <button
                             type="button"
@@ -759,14 +915,16 @@ export const BahanKimiaView: React.FC = () => {
                             <FileText className="w-3.5 h-3.5" />
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => setChemicalToDelete(c)}
-                            className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
-                            title="Hapus Bahan"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {userMode === 'laboran' && (
+                            <button
+                              type="button"
+                              onClick={() => setChemicalToDelete(c)}
+                              className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                              title="Hapus Bahan"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -893,7 +1051,22 @@ export const BahanKimiaView: React.FC = () => {
             )}
 
             <form onSubmit={handleAddSubmit} className="mt-4 space-y-3.5">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Kategori Lab *
+                  </label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value as 'Biokim Putra' | 'Fisika Putri' | 'Biokim Putri')}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white font-medium text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="Biokim Putra">Biokim Putra</option>
+                    <option value="Fisika Putri">Fisika Putri</option>
+                    <option value="Biokim Putri">Biokim Putri</option>
+                  </select>
+                </div>
+
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-semibold text-slate-700">
@@ -921,6 +1094,9 @@ export const BahanKimiaView: React.FC = () => {
                     Format: <span className="font-mono font-semibold text-slate-600">BHM-KIM-xxx</span> (nomor terkecil yang belum terpakai)
                   </p>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Nomor CAS
@@ -936,6 +1112,7 @@ export const BahanKimiaView: React.FC = () => {
                     Opsional untuk rujukan MSDS keselamatan
                   </p>
                 </div>
+                <div />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1107,6 +1284,268 @@ export const BahanKimiaView: React.FC = () => {
         </div>
       )}
 
+      {/* Modal Edit Data Reagen / Bahan Kimia */}
+      {editingChem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h4 className="font-bold text-slate-900 text-sm">
+                Edit Data Reagen: {editingChem.code}
+              </h4>
+              <button
+                type="button"
+                onClick={() => setEditingChem(null)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {editFormError && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs flex items-center justify-between">
+                <span>{editFormError}</span>
+                <button
+                  type="button"
+                  onClick={() => setEditFormError(null)}
+                  className="text-red-400 hover:text-red-700 ml-2"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            <form onSubmit={handleEditSubmit} className="mt-4 space-y-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Kategori Lab *
+                  </label>
+                  <select
+                    value={editingChem.category || 'Biokim Putra'}
+                    onChange={(e) =>
+                      setEditingChem({ ...editingChem, category: e.target.value as any })
+                    }
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white font-medium text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="Biokim Putra">Biokim Putra</option>
+                    <option value="Fisika Putri">Fisika Putri</option>
+                    <option value="Biokim Putri">Biokim Putri</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Kode Bahan *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingChem.code}
+                    onChange={(e) => setEditingChem({ ...editingChem, code: e.target.value })}
+                    className="w-full px-3 py-2 text-xs font-mono font-bold text-blue-700 border border-slate-300 rounded-lg bg-slate-50/70 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Format: <span className="font-mono font-semibold text-slate-600">BHM-KIM-xxx</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Nomor CAS
+                  </label>
+                  <input
+                    type="text"
+                    value={editingChem.casNumber}
+                    onChange={(e) => setEditingChem({ ...editingChem, casNumber: e.target.value })}
+                    placeholder="Contoh: 7647-01-0"
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Opsional untuk rujukan MSDS keselamatan
+                  </p>
+                </div>
+                <div />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Nama Bahan *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingChem.name}
+                    onChange={(e) => setEditingChem({ ...editingChem, name: e.target.value })}
+                    placeholder="Contoh: Asam Nitrat (HNO3) 65%"
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Rumus Kimia *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingChem.formula}
+                    onChange={(e) => setEditingChem({ ...editingChem, formula: e.target.value })}
+                    placeholder="Contoh: HNO3"
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Wujud
+                  </label>
+                  <select
+                    value={editingChem.form}
+                    onChange={(e) =>
+                      setEditingChem({ ...editingChem, form: e.target.value as Chemical['form'] })
+                    }
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
+                  >
+                    <option value="Cair">Cair</option>
+                    <option value="Padat">Padat</option>
+                    <option value="Indikator">Indikator</option>
+                    <option value="Gas">Gas</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Stok
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editingChem.stock}
+                    onChange={(e) =>
+                      setEditingChem({ ...editingChem, stock: Number(e.target.value) })
+                    }
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Satuan
+                  </label>
+                  <select
+                    value={editingChem.unit}
+                    onChange={(e) =>
+                      setEditingChem({ ...editingChem, unit: e.target.value as Chemical['unit'] })
+                    }
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
+                  >
+                    <option value="mL">mL</option>
+                    <option value="L">L</option>
+                    <option value="gram">gram</option>
+                    <option value="kg">kg</option>
+                    <option value="botol">botol</option>
+                    <option value="buah">buah</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Lokasi Penyimpanan
+                  </label>
+                  <input
+                    type="text"
+                    value={editingChem.location}
+                    onChange={(e) => setEditingChem({ ...editingChem, location: e.target.value })}
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Batas Minimum Stok
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={editingChem.minStock}
+                    onChange={(e) =>
+                      setEditingChem({ ...editingChem, minStock: Number(e.target.value) })
+                    }
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Klasifikasi Bahaya (GHS)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {(['corrosive', 'flammable', 'toxic', 'oxidizer', 'irritant', 'environmental', 'safe'] as HazardType[]).map((hz) => (
+                    <button
+                      key={hz}
+                      type="button"
+                      onClick={() => handleEditHazardToggle(hz)}
+                      className={`px-2.5 py-1 text-xs rounded-md border font-medium transition-colors ${
+                        editingChem.hazards?.includes(hz)
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {hz}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Tanggal Kadaluarsa
+                </label>
+                <input
+                  type="date"
+                  value={editingChem.expiryDate}
+                  onChange={(e) => setEditingChem({ ...editingChem, expiryDate: e.target.value })}
+                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Catatan Penanganan Khusus
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingChem.notes || ''}
+                  onChange={(e) => setEditingChem({ ...editingChem, notes: e.target.value })}
+                  placeholder="Instruksi APD atau bahaya spesifik..."
+                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingChem(null)}
+                  className="px-4 py-2 text-xs text-slate-600 hover:text-slate-800"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg"
+                >
+                  Simpan Perubahan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Modal Konfirmasi Hapus Reagen */}
       {chemicalToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
@@ -1201,7 +1640,10 @@ export const BahanKimiaView: React.FC = () => {
                     Gunakan template resmi agar susunan kolom sesuai dengan sistem inventaris lab.
                   </p>
                   <p className="text-[10px] text-blue-600 font-mono">
-                    Kolom: Kode Bahan, Nama Bahan, Rumus Kimia, No CAS, Wujud, Stok, Satuan, Batas Min, Lokasi, Kadaluarsa, Bahaya, Catatan
+                    Kolom: Kode Bahan, Kategori Lab, Nama Bahan, Rumus Kimia, No CAS, Wujud, Stok, Satuan, Batas Min, Lokasi, Kadaluarsa, Bahaya, Catatan
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    Pilihan Kategori Lab: <span className="font-semibold text-blue-700">Biokim Putra</span>, <span className="font-semibold text-amber-700">Fisika Putri</span>, <span className="font-semibold text-purple-700">Biokim Putri</span>
                   </p>
                 </div>
                 <button
@@ -1283,6 +1725,7 @@ export const BahanKimiaView: React.FC = () => {
                         <tr>
                           <th className="py-2 px-2.5">No</th>
                           <th className="py-2 px-2.5">Kode Bahan</th>
+                          <th className="py-2 px-2.5">Kategori Lab</th>
                           <th className="py-2 px-2.5">Nama Bahan</th>
                           <th className="py-2 px-2.5">Rumus</th>
                           <th className="py-2 px-2.5">Wujud</th>
@@ -1300,6 +1743,19 @@ export const BahanKimiaView: React.FC = () => {
                             </td>
                             <td className="py-2 px-2.5 font-mono font-bold text-blue-700 whitespace-nowrap">
                               {c.code}
+                            </td>
+                            <td className="py-2 px-2.5 whitespace-nowrap">
+                              <span
+                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                                  c.category === 'Biokim Putri'
+                                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                    : c.category === 'Fisika Putri'
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                    : 'bg-blue-50 text-blue-700 border-blue-200'
+                                }`}
+                              >
+                                {c.category || 'Biokim Putra'}
+                              </span>
                             </td>
                             <td className="py-2 px-2.5 font-medium text-slate-900 max-w-[150px] truncate" title={c.name}>
                               {c.name}

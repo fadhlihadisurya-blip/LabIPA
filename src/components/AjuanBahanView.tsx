@@ -702,7 +702,7 @@ export const AjuanBahanView: React.FC = () => {
                       >
                         {chemicals.map((c) => (
                           <option key={c.id} value={c.id}>
-                            {c.name} (Stok: {c.stock} {c.unit})
+                            {c.name} {c.category ? `[${c.category}]` : ''} (Stok: {c.stock} {c.unit})
                           </option>
                         ))}
                       </select>

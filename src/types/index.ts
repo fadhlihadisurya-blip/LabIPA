@@ -28,10 +28,13 @@ export type HazardType =
   | 'environmental'
   | 'safe';
 
+export type ChemicalLabCategory = 'Biokim Putra' | 'Fisika Putri' | 'Biokim Putri';
+
 export interface Chemical {
   id: string;
   code: string;
   name: string;
+  category?: ChemicalLabCategory | string;
   formula: string;
   casNumber: string;
   form: 'Padat' | 'Cair' | 'Gas' | 'Indikator';
