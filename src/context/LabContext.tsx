@@ -920,14 +920,30 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     try {
+      const formatTime = (timeStr?: string, defaultVal = '07.00 WIB') => {
+        if (!timeStr || timeStr === '-') return defaultVal;
+        const trimmed = timeStr.trim();
+        return trimmed.toUpperCase().includes('WIB') ? trimmed : `${trimmed} WIB`;
+      };
+
+      const startDate = newVisit.visitDate || today;
+      const endDate = newVisit.endDate || newVisit.visitDate || startDate;
+      const startTime = formatTime(newVisit.sessionTime, '07.00 WIB');
+      const endTime = formatTime(newVisit.endTime, '08.30 WIB');
+
+      const classDisplay =
+        newVisit.studentCount && newVisit.studentCount > 0
+          ? `${newVisit.classGroup} (${newVisit.studentCount} siswa)`
+          : newVisit.classGroup;
+
       await sendTelegramMessage(
         `🔔 <b>AJUAN KUNJUNGAN LABORATORIUM BARU</b>\n\n` +
         `👤 Pengunjung: <b>${newVisit.teacherName}</b> (${newVisit.visitorType || 'Guru'})\n` +
         `🔬 Lab: <b>${newVisit.labType}</b>\n` +
         `📚 Mapel: <b>${newVisit.practicumSubject}</b>\n` +
         `📝 Topik: ${newVisit.practicumTitle}\n` +
-        `📅 Tanggal: ${newVisit.visitDate} (${newVisit.sessionTime} - ${newVisit.endTime || '-'})\n` +
-        `🏢 Kelas/Rombel: ${newVisit.classGroup}`
+        `📅 Tanggal: ${startDate} (${startTime}) s/d ${endDate} (${endTime})\n` +
+        `🏢 Kelas/Rombel: ${classDisplay}`
       );
     } catch {
       // Non-blocking notification

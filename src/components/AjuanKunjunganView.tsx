@@ -242,6 +242,7 @@ export const AjuanKunjunganView: React.FC = () => {
     // Reset form
     setVisitorName('');
     setClassGroup('');
+    setStudentCount(30);
     setPracticumTitle('');
     setVisitDate('');
     setEndDate('');
