@@ -61,6 +61,12 @@ function parseCSV(text: string): string[][] {
 
 export const getCategoryPrefix = (cat: Equipment['category']): string => {
   switch (cat) {
+    case 'Biokim Putra':
+      return 'ALT-BK-Putra-';
+    case 'Fisika Putri':
+      return 'ALT-Fis-Putri-';
+    case 'Biokim Putri':
+      return 'ALT-BK-Putri-';
     case 'Fisika':
       return 'ALT-Fis-';
     case 'Kimia':
@@ -68,7 +74,6 @@ export const getCategoryPrefix = (cat: Equipment['category']): string => {
     case 'Biologi':
       return 'ALT-Bio-';
     case 'Umum':
-      return 'ALT-Umum-';
     default:
       return 'ALT-Umum-';
   }
@@ -83,6 +88,15 @@ export const getNextEquipmentCode = (
 
   let categoryPattern: RegExp;
   switch (cat) {
+    case 'Biokim Putra':
+      categoryPattern = /^ALT[-_]?(?:BK[-_]?Putra|BKP|Biokim[-_]?Putra|BK[-_]?PA)[-_]?(\d+)/i;
+      break;
+    case 'Fisika Putri':
+      categoryPattern = /^ALT[-_]?(?:Fis[-_]?Putri|FSP|Fisika[-_]?Putri|FIS[-_]?PI)[-_]?(\d+)/i;
+      break;
+    case 'Biokim Putri':
+      categoryPattern = /^ALT[-_]?(?:BK[-_]?Putri|BKI|Biokim[-_]?Putri|BK[-_]?PI)[-_]?(\d+)/i;
+      break;
     case 'Fisika':
       categoryPattern = /^ALT[-_]?Fis(?:ika)?[-_]?(\d+)/i;
       break;
@@ -149,13 +163,13 @@ export const AlatLabView: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false);
 
   // Form states
-  const [category, setCategory] = useState<Equipment['category']>('Fisika');
-  const [code, setCode] = useState(() => getNextEquipmentCode('Fisika', equipment));
+  const [category, setCategory] = useState<Equipment['category']>('Biokim Putra');
+  const [code, setCode] = useState(() => getNextEquipmentCode('Biokim Putra', equipment));
   const [name, setName] = useState('');
   const [totalCount, setTotalCount] = useState<number>(10);
   const [goodCount, setGoodCount] = useState<number>(10);
   const [damagedCount, setDamagedCount] = useState<number>(0);
-  const [location, setLocation] = useState('Lemari Lab Fisika');
+  const [location, setLocation] = useState('Lemari Lab Biokim Putra');
   const [brand, setBrand] = useState('');
   const [specification, setSpecification] = useState('');
 
@@ -168,14 +182,14 @@ export const AlatLabView: React.FC = () => {
   };
 
   const openAddModal = () => {
-    const defaultCat: Equipment['category'] = 'Fisika';
+    const defaultCat: Equipment['category'] = 'Biokim Putra';
     setCategory(defaultCat);
     setCode(getNextEquipmentCode(defaultCat, equipment));
     setName('');
     setTotalCount(10);
     setGoodCount(10);
     setDamagedCount(0);
-    setLocation('Lemari Lab Fisika');
+    setLocation('Lemari Lab Biokim Putra');
     setBrand('');
     setSpecification('');
     setIsAddModalOpen(true);
@@ -237,19 +251,65 @@ export const AlatLabView: React.FC = () => {
     setSpecification('');
   };
 
+  const handleEditCategoryChange = (newCat: Equipment['category']) => {
+    if (!editingEq) return;
+    const otherEquipment = equipment.filter((e) => e.id !== editingEq.id);
+    const newNextCode = getNextEquipmentCode(newCat, otherEquipment);
+    const oldPrefix = getCategoryPrefix(editingEq.category);
+    const shouldUpdateCode = !editingEq.code || editingEq.code.startsWith(oldPrefix);
+
+    setEditingEq({
+      ...editingEq,
+      category: newCat,
+      code: shouldUpdateCode ? newNextCode : editingEq.code,
+      location:
+        !editingEq.location || editingEq.location.startsWith('Lemari Lab')
+          ? `Lemari Lab ${newCat}`
+          : editingEq.location,
+    });
+  };
+
+  const handleRegenerateEditCode = () => {
+    if (!editingEq) return;
+    const otherEquipment = equipment.filter((e) => e.id !== editingEq.id);
+    const nextCode = getNextEquipmentCode(editingEq.category, otherEquipment);
+    setEditingEq({
+      ...editingEq,
+      code: nextCode,
+    });
+  };
+
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingEq) return;
 
+    if (!editingEq.name.trim() || !editingEq.code.trim()) {
+      alert('Mohon isi nama dan kode alat');
+      return;
+    }
+
+    const isDuplicate = equipment.some(
+      (eq) => eq.id !== editingEq.id && eq.code.trim().toLowerCase() === editingEq.code.trim().toLowerCase()
+    );
+    if (isDuplicate) {
+      alert(`Kode alat "${editingEq.code}" sudah digunakan oleh instrumen lain. Mohon gunakan kode yang unik.`);
+      return;
+    }
+
+    const total = Number(editingEq.totalCount) || 0;
+    const good = Number(editingEq.goodCount) || 0;
+    const damaged = Number(editingEq.damagedCount) || 0;
+
     updateEquipment(editingEq.id, {
-      name: editingEq.name,
+      code: editingEq.code.trim(),
+      name: editingEq.name.trim(),
       category: editingEq.category,
-      totalCount: Number(editingEq.totalCount),
-      goodCount: Number(editingEq.goodCount),
-      damagedCount: Number(editingEq.damagedCount),
-      location: editingEq.location,
-      brand: editingEq.brand,
-      specification: editingEq.specification,
+      totalCount: total,
+      goodCount: good,
+      damagedCount: damaged,
+      location: editingEq.location?.trim() || 'Rak Laboratorium',
+      brand: editingEq.brand ? editingEq.brand.trim() : '',
+      specification: editingEq.specification ? editingEq.specification.trim() : '',
     });
 
     setEditingEq(null);
@@ -284,10 +344,9 @@ export const AlatLabView: React.FC = () => {
       '\uFEFF' +
       [
         'Kode Alat,Nama Alat,Kategori,Total Unit,Kondisi Baik,Rusak,Lokasi,Merk,Spesifikasi',
-        'ALT-Fis-005,"Garputala dan Kotak Resonansi",Fisika,12,12,0,"Lemari Lab Fisika","Pudak","Frekuensi 440 Hz"',
-        'ALT-Kim-006,"Buret Bening 50ml",Kimia,20,19,1,"Rak Kaca Lab Kimia","Pyrex","Kran PTFE Teflon"',
-        'ALT-Bio-004,"Model Kerangka Tubuh Manusia",Biologi,4,4,0,"Sudut Anatomi Lab Biologi","Torso Media","Tinggi 170cm bahan PVC"',
-        'ALT-Umum-001,"Stopwatch Digital Presisi",Umum,15,15,0,"Lemari Lab Umum","Diamond","Ketelitian 0.01 detik"',
+        'ALT-BK-Putra-001,"Buret Bening 50ml",Biokim Putra,20,19,1,"Rak Kaca Lab Biokim Putra","Pyrex","Kran PTFE Teflon"',
+        'ALT-Fis-Putri-001,"Garputala dan Kotak Resonansi",Fisika Putri,12,12,0,"Lemari Lab Fisika Putri","Pudak","Frekuensi 440 Hz"',
+        'ALT-BK-Putri-001,"Model Kerangka Tubuh Manusia",Biokim Putri,4,4,0,"Sudut Anatomi Lab Biokim Putri","Torso Media","Tinggi 170cm bahan PVC"',
       ].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -572,10 +631,9 @@ export const AlatLabView: React.FC = () => {
             className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">Semua Kategori</option>
-            <option value="Biologi">Biologi</option>
-            <option value="Fisika">Fisika</option>
-            <option value="Kimia">Kimia</option>
-            <option value="Umum">Umum</option>
+            <option value="Biokim Putra">Biokim Putra</option>
+            <option value="Fisika Putri">Fisika Putri</option>
+            <option value="Biokim Putri">Biokim Putri</option>
           </select>
 
           <select
@@ -625,7 +683,13 @@ export const AlatLabView: React.FC = () => {
                     <td className="px-3 py-3.5 whitespace-nowrap">
                       <span
                         className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${
-                          eq.category === 'Biologi'
+                          eq.category === 'Biokim Putra'
+                            ? 'bg-blue-50 text-blue-700'
+                            : eq.category === 'Fisika Putri'
+                            ? 'bg-purple-50 text-purple-700'
+                            : eq.category === 'Biokim Putri'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : eq.category === 'Biologi'
                             ? 'bg-emerald-50 text-emerald-700'
                             : eq.category === 'Fisika'
                             ? 'bg-blue-50 text-blue-700'
@@ -681,7 +745,7 @@ export const AlatLabView: React.FC = () => {
                           <>
                             <button
                               type="button"
-                              onClick={() => setEditingEq(eq)}
+                              onClick={() => setEditingEq({ ...eq })}
                               className="p-1 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
                               title="Edit Alat"
                             >
@@ -745,10 +809,9 @@ export const AlatLabView: React.FC = () => {
                     onChange={(e) => handleCategoryChange(e.target.value as Equipment['category'])}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   >
-                    <option value="Fisika">Fisika</option>
-                    <option value="Kimia">Kimia</option>
-                    <option value="Biologi">Biologi</option>
-                    <option value="Umum">Umum</option>
+                    <option value="Biokim Putra">Biokim Putra</option>
+                    <option value="Fisika Putri">Fisika Putri</option>
+                    <option value="Biokim Putri">Biokim Putri</option>
                   </select>
                   <p className="text-[10px] text-slate-400 mt-1">
                     Format kode: <span className="font-mono font-semibold text-slate-600">{getCategoryPrefix(category)}xxx</span>
@@ -899,7 +962,7 @@ export const AlatLabView: React.FC = () => {
       {/* Modal Edit Alat */}
       {editingEq && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h4 className="font-bold text-slate-900 text-sm">
                 Edit Data Alat: {editingEq.code}
@@ -914,15 +977,66 @@ export const AlatLabView: React.FC = () => {
             </div>
 
             <form onSubmit={handleEditSubmit} className="mt-4 space-y-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Kategori Lab *
+                  </label>
+                  <select
+                    value={editingEq.category}
+                    onChange={(e) => handleEditCategoryChange(e.target.value as Equipment['category'])}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="Biokim Putra">Biokim Putra</option>
+                    <option value="Fisika Putri">Fisika Putri</option>
+                    <option value="Biokim Putri">Biokim Putri</option>
+                    {!['Biokim Putra', 'Fisika Putri', 'Biokim Putri'].includes(editingEq.category) && (
+                      <option value={editingEq.category}>{editingEq.category}</option>
+                    )}
+                  </select>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Format kode: <span className="font-mono font-semibold text-slate-600">{getCategoryPrefix(editingEq.category)}xxx</span>
+                  </p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Kode Alat *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleRegenerateEditCode}
+                      className="text-[10px] text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded font-mono font-medium transition-colors"
+                      title="Klik untuk membuat nomor urut terkecil otomatis"
+                    >
+                      Terkecil Otomatis ↺
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={editingEq.code}
+                    onChange={(e) => setEditingEq({ ...editingEq, code: e.target.value })}
+                    placeholder={getNextEquipmentCode(editingEq.category, equipment.filter(e => e.id !== editingEq.id))}
+                    className="w-full px-3 py-2 text-xs font-mono font-bold text-blue-700 border border-slate-300 rounded-lg bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Nomor terkecil yang belum digunakan pada kategori {editingEq.category}
+                  </p>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Nama Alat
+                  Nama Alat *
                 </label>
                 <input
                   type="text"
                   required
                   value={editingEq.name}
                   onChange={(e) => setEditingEq({ ...editingEq, name: e.target.value })}
+                  placeholder="Contoh: Neraca Ohaus 311g / Catu Daya Lab"
                   className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
                 />
               </div>
@@ -930,13 +1044,17 @@ export const AlatLabView: React.FC = () => {
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Total
+                    Total Unit *
                   </label>
                   <input
                     type="number"
                     min={0}
+                    required
                     value={editingEq.totalCount}
-                    onChange={(e) => setEditingEq({ ...editingEq, totalCount: Number(e.target.value) })}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setEditingEq({ ...editingEq, totalCount: val });
+                    }}
                     className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
                   />
                 </div>
@@ -969,26 +1087,41 @@ export const AlatLabView: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Lokasi Rak
-                  </label>
-                  <input
-                    type="text"
-                    value={editingEq.location}
-                    onChange={(e) => setEditingEq({ ...editingEq, location: e.target.value })}
-                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Merk / Brand
                   </label>
                   <input
                     type="text"
                     value={editingEq.brand || ''}
                     onChange={(e) => setEditingEq({ ...editingEq, brand: e.target.value })}
+                    placeholder="Contoh: Pudak / Olympus"
                     className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Lokasi Rak / Lemari
+                  </label>
+                  <input
+                    type="text"
+                    value={editingEq.location}
+                    onChange={(e) => setEditingEq({ ...editingEq, location: e.target.value })}
+                    placeholder="Contoh: Lemari Kaca A2"
+                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Spesifikasi Teknis
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingEq.specification || ''}
+                  onChange={(e) => setEditingEq({ ...editingEq, specification: e.target.value })}
+                  placeholder="Detail ukuran, kapasitas, ketelitian atau voltase..."
+                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
+                />
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">

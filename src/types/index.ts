@@ -48,7 +48,14 @@ export interface Equipment {
   id: string;
   code: string;
   name: string;
-  category: 'Kimia' | 'Fisika' | 'Biologi' | 'Umum';
+  category:
+    | 'Biokim Putra'
+    | 'Fisika Putri'
+    | 'Biokim Putri'
+    | 'Kimia'
+    | 'Fisika'
+    | 'Biologi'
+    | 'Umum';
   totalCount: number;
   goodCount: number;
   damagedCount: number;
@@ -101,11 +108,18 @@ export interface VisitRequest {
   visitorType?: 'Guru' | 'Murid';
   teacherName: string;
   contactNumber?: string;
-  labType: 'Lab Kimia' | 'Lab Fisika' | 'Lab Biologi' | 'Lab IPA Terpadu';
+  labType:
+    | 'Biokim Putra'
+    | 'Fisika Putri'
+    | 'Biokim Putri'
+    | 'Lab Kimia'
+    | 'Lab Fisika'
+    | 'Lab Biologi'
+    | 'Lab IPA Terpadu';
   classGroup: string;
   studentCount?: number;
   practicumTitle: string;
-  practicumSubject: 'Fisika' | 'Kimia' | 'Biologi' | 'IPA Terpadu';
+  practicumSubject: 'Fisika' | 'Kimia' | 'Biologi' | 'Umum' | 'IPA Terpadu';
   visitDate: string;
   sessionTime: string;
   endDate?: string;
@@ -164,15 +178,21 @@ export interface MSDSItem {
   requiredPpe: string[];
 }
 
+export interface SOPStep {
+  type: 'text' | 'image';
+  content: string;
+}
+
 export interface SOPItem {
   id: string;
   code: string;
   title: string;
   category: 'Keselamatan' | 'Peminjaman' | 'Pengelolaan B3' | 'Instrumen' | 'Kebersihan';
   summary: string;
-  steps: string[];
+  steps: SOPStep[] | string[];
   safetyPoints: string[];
   lastUpdated: string;
+  imageUrl?: string;
 }
 
 export type TeacherSubject =

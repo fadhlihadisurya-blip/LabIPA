@@ -104,6 +104,15 @@ service cloud.firestore {
       allow delete: if isValidId(studentId);
     }
 
+    // SOP Collection
+    match /sops/{sopId} {
+      allow read: if true;
+      allow create, update: if isValidId(sopId)
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0;
+      allow delete: if isValidId(sopId);
+    }
+
     // Health check test collection
     match /test/{testId} {
       allow read: if true;

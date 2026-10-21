@@ -66,11 +66,11 @@ export const AjuanKunjunganView: React.FC = () => {
   // Form state
   const [visitorType, setVisitorType] = useState<'Guru' | 'Murid'>('Guru');
   const [visitorName, setVisitorName] = useState('');
-  const [labType, setLabType] = useState<VisitRequest['labType']>('Lab Kimia');
+  const [labType, setLabType] = useState<VisitRequest['labType']>('Biokim Putra');
   const [classGroup, setClassGroup] = useState('');
   const [studentCount, setStudentCount] = useState<number>(30);
   const [practicumTitle, setPracticumTitle] = useState('');
-  const [practicumSubject, setPracticumSubject] = useState<VisitRequest['practicumSubject']>('Kimia');
+  const [practicumSubject, setPracticumSubject] = useState<VisitRequest['practicumSubject']>('Fisika');
   const [visitDate, setVisitDate] = useState('');
   const [sessionTime, setSessionTime] = useState<string>('07.00');
   const [endDate, setEndDate] = useState('');
@@ -138,16 +138,16 @@ export const AjuanKunjunganView: React.FC = () => {
       if (teacher && teacher.subject) {
         if (/kimia/i.test(teacher.subject)) {
           setPracticumSubject('Kimia');
-          setLabType('Lab Kimia');
+          setLabType('Biokim Putra');
         } else if (/fisika/i.test(teacher.subject)) {
           setPracticumSubject('Fisika');
-          setLabType('Lab Fisika');
+          setLabType('Fisika Putri');
         } else if (/biologi/i.test(teacher.subject)) {
           setPracticumSubject('Biologi');
-          setLabType('Lab Biologi');
-        } else if (/ipa/i.test(teacher.subject)) {
-          setPracticumSubject('IPA Terpadu');
-          setLabType('Lab IPA Terpadu');
+          setLabType('Biokim Putri');
+        } else if (/ipa|umum/i.test(teacher.subject)) {
+          setPracticumSubject('Umum');
+          setLabType('Biokim Putra');
         }
       }
     }
@@ -169,8 +169,8 @@ export const AjuanKunjunganView: React.FC = () => {
     setClassGroup('');
     setStudentCount(30);
     setPracticumTitle('');
-    setPracticumSubject('Kimia');
-    setLabType('Lab Kimia');
+    setPracticumSubject('Fisika');
+    setLabType('Biokim Putra');
     setVisitDate('');
     setEndDate('');
     setSessionTime('07.00');
@@ -258,7 +258,7 @@ export const AjuanKunjunganView: React.FC = () => {
             Jadwal & Pengajuan Kunjungan Laboratorium
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Reservasi penggunaan ruang Lab Fisika, Lab Kimia, Lab Biologi, dan Lab IPA Terpadu.
+            Reservasi penggunaan ruang Biokim Putra, Fisika Putri, dan Biokim Putri.
           </p>
         </div>
 
@@ -292,10 +292,9 @@ export const AjuanKunjunganView: React.FC = () => {
             className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">Semua Ruang Lab</option>
-            <option value="Lab Kimia">Lab Kimia</option>
-            <option value="Lab Fisika">Lab Fisika</option>
-            <option value="Lab Biologi">Lab Biologi</option>
-            <option value="Lab IPA Terpadu">Lab IPA Terpadu</option>
+            <option value="Biokim Putra">Biokim Putra</option>
+            <option value="Fisika Putri">Fisika Putri</option>
+            <option value="Biokim Putri">Biokim Putri</option>
           </select>
 
           <select
@@ -610,10 +609,9 @@ export const AjuanKunjunganView: React.FC = () => {
                     onChange={(e) => setLabType(e.target.value as VisitRequest['labType'])}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="Lab Kimia">Lab Kimia</option>
-                    <option value="Lab Fisika">Lab Fisika</option>
-                    <option value="Lab Biologi">Lab Biologi</option>
-                    <option value="Lab IPA Terpadu">Lab IPA Terpadu</option>
+                    <option value="Biokim Putra">Biokim Putra</option>
+                    <option value="Fisika Putri">Fisika Putri</option>
+                    <option value="Biokim Putri">Biokim Putri</option>
                   </select>
                 </div>
 
@@ -628,10 +626,10 @@ export const AjuanKunjunganView: React.FC = () => {
                     }
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="Kimia">Kimia</option>
                     <option value="Fisika">Fisika</option>
+                    <option value="Kimia">Kimia</option>
                     <option value="Biologi">Biologi</option>
-                    <option value="IPA Terpadu">IPA Terpadu</option>
+                    <option value="Umum">Umum</option>
                   </select>
                 </div>
               </div>

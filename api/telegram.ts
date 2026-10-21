@@ -6,19 +6,20 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { message } = req.body || {};
+    const { message, botToken: bodyToken, chatId: bodyChatId } = req.body || {};
 
     if (!message || typeof message !== 'string' || message.trim() === '') {
       return res.status(400).json({ success: false, error: 'Pesan tidak boleh kosong' });
     }
 
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const botToken = bodyToken || process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = bodyChatId || process.env.TELEGRAM_CHAT_ID;
 
     if (!botToken || !chatId) {
-      return res.status(500).json({
+      return res.status(200).json({
         success: false,
-        error: 'Konfigurasi Telegram server belum disetel (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID missing di Vercel).',
+        configured: false,
+        message: 'Konfigurasi Telegram bot belum disetel.',
       });
     }
 

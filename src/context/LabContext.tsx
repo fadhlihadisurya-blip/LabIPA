@@ -120,6 +120,9 @@ interface LabContextType {
 
   msdsList: MSDSItem[];
   sopList: SOPItem[];
+  addSop: (item: Omit<SOPItem, 'id'>) => Promise<void>;
+  updateSop: (id: string, item: Partial<SOPItem>) => Promise<void>;
+  deleteSop: (id: string) => Promise<void>;
 
   teachers: Teacher[];
   addTeacher: (item: Omit<Teacher, 'id'>) => Promise<void>;
@@ -205,15 +208,56 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const sendTelegramMessage = async (message: string): Promise<boolean> => {
     try {
+      // 1. Direct Telegram API call if configured on client side
+      if (telegramConfig.enabled && telegramConfig.botToken && telegramConfig.chatId) {
+        try {
+          const telegramUrl = `https://api.telegram.org/bot${telegramConfig.botToken.trim()}/sendMessage`;
+          const res = await fetch(telegramUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: telegramConfig.chatId.trim(),
+              text: message,
+              parse_mode: 'HTML',
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.ok) return true;
+          }
+        } catch {
+          // If direct fetch fails, proceed to /api/telegram fallback
+        }
+      }
+
+      // 2. Fallback to /api/telegram (backend serverless or dev middleware)
       const res = await fetch('/api/telegram', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          message,
+          botToken: telegramConfig.botToken ? telegramConfig.botToken.trim() : undefined,
+          chatId: telegramConfig.chatId ? telegramConfig.chatId.trim() : undefined,
+        }),
       });
-      const data = await res.json();
-      return data.success === true;
+
+      if (!res.ok) {
+        return false;
+      }
+
+      const text = await res.text();
+      if (!text || text.trim() === '') {
+        return false;
+      }
+
+      try {
+        const data = JSON.parse(text);
+        return data.success === true;
+      } catch {
+        return false;
+      }
     } catch (err) {
-      console.error('Failed to send Telegram notification:', err);
+      console.warn('Telegram notification not sent (network or configuration):', err);
       return false;
     }
   };
@@ -227,7 +271,7 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 
   const [msdsList] = useState<MSDSItem[]>(INITIAL_MSDS);
-  const [sopList] = useState<SOPItem[]>(INITIAL_SOPS);
+  const [sopList, setSopList] = useState<SOPItem[]>(INITIAL_SOPS);
 
   const [teachers, setTeachers] = useState<Teacher[]>(INITIAL_TEACHERS);
   const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
@@ -434,6 +478,31 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     );
 
+    // 8. SOPs listener & seed
+    const unsubSops = onSnapshot(
+      collection(db, 'sops'),
+      async (snapshot) => {
+        if (snapshot.empty) {
+          for (const item of INITIAL_SOPS) {
+            try {
+              await setDoc(doc(db, 'sops', item.id), item);
+            } catch (err) {
+              console.warn('Seeding sops failed:', err);
+            }
+          }
+        } else {
+          const list: SOPItem[] = [];
+          snapshot.forEach((d) =>
+            list.push({ ...d.data(), id: d.id } as SOPItem)
+          );
+          setSopList(list);
+        }
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'sops');
+      }
+    );
+
     return () => {
       unsubChem();
       unsubEq();
@@ -442,6 +511,7 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubChemReq();
       unsubTeachers();
       unsubStudents();
+      unsubSops();
     };
   }, []);
 
@@ -655,6 +725,12 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newBorrow: BorrowRecord = { ...item, id, borrowDate: today };
     try {
       await setDoc(doc(db, 'borrows', id), cleanFirestoreData(newBorrow));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `borrows/${id}`);
+      return;
+    }
+
+    try {
       await sendTelegramMessage(
         `🔔 <b>AJUAN PEMINJAMAN ALAT LAB BARU</b>\n\n` +
         `👤 Peminjam: <b>${newBorrow.borrowerName}</b> (${newBorrow.borrowerType})\n` +
@@ -663,8 +739,8 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         `📅 Rencana Kembali: ${newBorrow.returnDueDate}\n` +
         `🎯 Keperluan: ${newBorrow.purpose}`
       );
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `borrows/${id}`);
+    } catch {
+      // Non-blocking notification
     }
   };
 
@@ -838,6 +914,12 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     try {
       await setDoc(doc(db, 'visits', id), cleanFirestoreData(newVisit));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `visits/${id}`);
+      return;
+    }
+
+    try {
       await sendTelegramMessage(
         `🔔 <b>AJUAN KUNJUNGAN LABORATORIUM BARU</b>\n\n` +
         `👤 Pengunjung: <b>${newVisit.teacherName}</b> (${newVisit.visitorType || 'Guru'})\n` +
@@ -847,8 +929,8 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         `📅 Tanggal: ${newVisit.visitDate} (${newVisit.sessionTime} - ${newVisit.endTime || '-'})\n` +
         `🏢 Kelas/Rombel: ${newVisit.classGroup}`
       );
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `visits/${id}`);
+    } catch {
+      // Non-blocking notification
     }
   };
 
@@ -890,6 +972,12 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     try {
       await setDoc(doc(db, 'chemical_requests', id), cleanFirestoreData(newReq));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `chemical_requests/${id}`);
+      return;
+    }
+
+    try {
       const itemsSummary = newReq.items.map(i => `- ${i.chemicalName}: ${i.requestedAmount} ${i.unit}`).join('\n');
       await sendTelegramMessage(
         `🔔 <b>AJUAN BAHAN PRAKTIKUM BARU</b>\n\n` +
@@ -898,8 +986,8 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         `📅 Tanggal Butuh: ${newReq.dateNeeded}\n\n` +
         `🧪 <b>Daftar Bahan:</b>\n${itemsSummary}`
       );
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, `chemical_requests/${id}`);
+    } catch {
+      // Non-blocking notification
     }
   };
 
@@ -1004,6 +1092,43 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const addSop = async (item: Omit<SOPItem, 'id'>) => {
+    const id = `sop-${Date.now()}`;
+    const today = new Date().toISOString().split('T')[0];
+    const newSop: SOPItem = {
+      ...item,
+      id,
+      lastUpdated: today,
+    };
+    setSopList((prev) => [...prev, newSop]);
+    try {
+      await setDoc(doc(db, 'sops', id), cleanFirestoreData(newSop));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, `sops/${id}`);
+    }
+  };
+
+  const updateSop = async (id: string, updates: Partial<SOPItem>) => {
+    const today = new Date().toISOString().split('T')[0];
+    setSopList((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, ...updates, lastUpdated: today } : s))
+    );
+    try {
+      await updateDoc(doc(db, 'sops', id), cleanFirestoreData({ ...updates, lastUpdated: today }));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `sops/${id}`);
+    }
+  };
+
+  const deleteSop = async (id: string) => {
+    setSopList((prev) => prev.filter((s) => s.id !== id));
+    try {
+      await deleteDoc(doc(db, 'sops', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `sops/${id}`);
+    }
+  };
+
   const resetToDefaultData = async () => {
     for (const c of INITIAL_CHEMICALS) {
       await setDoc(doc(db, 'chemicals', c.id), c);
@@ -1081,6 +1206,9 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rejectChemicalRequest,
         msdsList,
         sopList,
+        addSop,
+        updateSop,
+        deleteSop,
         teachers,
         addTeacher,
         updateTeacher,
