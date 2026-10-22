@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
 import { ChemicalRequest, ChemicalRequestItem } from '../types';
+import { formatDate } from '../utils/dateUtils';
 
 export const AjuanBahanView: React.FC = () => {
   const {
@@ -292,7 +293,7 @@ export const AjuanBahanView: React.FC = () => {
                     <span className="text-xs text-slate-400">·</span>
                     <span className="text-xs text-slate-500 inline-flex items-center gap-1">
                       <CalendarDays className="w-3.5 h-3.5" />
-                      Dibutuhkan: <span className="font-mono font-medium">{req.dateNeeded}</span>
+                      Dibutuhkan: <span className="font-mono font-medium">{formatDate(req.dateNeeded)}</span>
                     </span>
                   </div>
 
@@ -661,9 +662,16 @@ export const AjuanBahanView: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Tanggal Dibutuhkan *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Tanggal Dibutuhkan * <span className="text-[10px] text-slate-400 font-normal">(dd-mm-yyyy)</span>
+                    </label>
+                    {dateNeeded && (
+                      <span className="text-[10px] font-mono font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                        {formatDate(dateNeeded)}
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="date"
                     required

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
 import { VisitRequest } from '../types';
+import { formatDate } from '../utils/dateUtils';
 
 export const START_TIME_OPTIONS = [
   '07.00',
@@ -378,8 +379,8 @@ export const AjuanKunjunganView: React.FC = () => {
                       <span>
                         Tgl Peminjaman:{' '}
                         <strong className="font-mono tabular-nums text-slate-700">
-                          {item.visitDate}
-                          {item.endDate && item.endDate !== item.visitDate ? ` s/d ${item.endDate}` : ''}
+                          {formatDate(item.visitDate)}
+                          {item.endDate && item.endDate !== item.visitDate ? ` s/d ${formatDate(item.endDate)}` : ''}
                         </strong>
                       </span>
                     </div>
@@ -706,9 +707,16 @@ export const AjuanKunjunganView: React.FC = () => {
               {/* Tanggal Peminjaman & Jam Mulai */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Tanggal Peminjaman *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Tanggal Peminjaman * <span className="text-[10px] text-slate-400 font-normal">(dd-mm-yyyy)</span>
+                    </label>
+                    {visitDate && (
+                      <span className="text-[10px] font-mono font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                        {formatDate(visitDate)}
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="date"
                     required
@@ -742,9 +750,16 @@ export const AjuanKunjunganView: React.FC = () => {
               {/* Tanggal Selesai & Jam Selesai */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Tanggal Selesai *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Tanggal Selesai * <span className="text-[10px] text-slate-400 font-normal">(dd-mm-yyyy)</span>
+                    </label>
+                    {(endDate || visitDate) && (
+                      <span className="text-[10px] font-mono font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                        {formatDate(endDate || visitDate)}
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="date"
                     required
@@ -862,14 +877,14 @@ export const AjuanKunjunganView: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[11px]">Tanggal Peminjaman:</span>
-                  <span className="font-semibold text-slate-800">
-                    {selectedVisitForPrint.visitDate}
+                  <span className="font-semibold text-slate-800 font-mono">
+                    {formatDate(selectedVisitForPrint.visitDate)}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[11px]">Tanggal Selesai:</span>
-                  <span className="font-semibold text-slate-800">
-                    {selectedVisitForPrint.endDate || selectedVisitForPrint.visitDate}
+                  <span className="font-semibold text-slate-800 font-mono">
+                    {formatDate(selectedVisitForPrint.endDate || selectedVisitForPrint.visitDate)}
                   </span>
                 </div>
                 <div>

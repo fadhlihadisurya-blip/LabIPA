@@ -35,6 +35,7 @@ import {
   Teacher,
   Student,
 } from '../types';
+import { formatDate } from '../utils/dateUtils';
 
 export interface TelegramConfig {
   botToken: string;
@@ -722,7 +723,12 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addBorrow = async (item: Omit<BorrowRecord, 'id' | 'borrowDate'>) => {
     const id = `br-${Date.now()}`;
     const today = new Date().toISOString().split('T')[0];
-    const newBorrow: BorrowRecord = { ...item, id, borrowDate: today };
+    const newBorrow: BorrowRecord = {
+      ...item,
+      id,
+      borrowDate: formatDate(today),
+      returnDueDate: formatDate(item.returnDueDate),
+    };
     try {
       await setDoc(doc(db, 'borrows', id), cleanFirestoreData(newBorrow));
     } catch (error) {
@@ -736,7 +742,7 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         `👤 Peminjam: <b>${newBorrow.borrowerName}</b> (${newBorrow.borrowerType})\n` +
         `📦 Alat: <b>${newBorrow.equipmentName}</b> (Jumlah: ${newBorrow.quantity})\n` +
         `🏢 Kelas/Dept: ${newBorrow.classOrDept}\n` +
-        `📅 Rencana Kembali: ${newBorrow.returnDueDate}\n` +
+        `📅 Rencana Kembali: ${formatDate(newBorrow.returnDueDate)}\n` +
         `🎯 Keperluan: ${newBorrow.purpose}`
       );
     } catch {
@@ -790,7 +796,7 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const updates: Record<string, any> = {
         status: condition,
-        actualReturnDate: today,
+        actualReturnDate: formatDate(today),
       };
 
       if (damagedItems && damagedItems.length > 0) {
@@ -909,8 +915,10 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newVisit: VisitRequest = {
       ...item,
       id,
+      visitDate: formatDate(item.visitDate),
+      endDate: formatDate(item.endDate || item.visitDate),
       status: 'Menunggu Persetujuan',
-      createdAt: today,
+      createdAt: formatDate(today),
     };
     try {
       await setDoc(doc(db, 'visits', id), cleanFirestoreData(newVisit));
@@ -926,8 +934,8 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return trimmed.toUpperCase().includes('WIB') ? trimmed : `${trimmed} WIB`;
       };
 
-      const startDate = newVisit.visitDate || today;
-      const endDate = newVisit.endDate || newVisit.visitDate || startDate;
+      const startDate = formatDate(newVisit.visitDate || today);
+      const endDate = formatDate(newVisit.endDate || newVisit.visitDate || startDate);
       const startTime = formatTime(newVisit.sessionTime, '07.00 WIB');
       const endTime = formatTime(newVisit.endTime, '08.30 WIB');
 
@@ -983,8 +991,9 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newReq: ChemicalRequest = {
       ...item,
       id,
+      dateNeeded: formatDate(item.dateNeeded),
       status: 'Menunggu Persetujuan',
-      createdAt: today,
+      createdAt: formatDate(today),
     };
     try {
       await setDoc(doc(db, 'chemical_requests', id), cleanFirestoreData(newReq));
@@ -999,7 +1008,7 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         `🔔 <b>AJUAN BAHAN PRAKTIKUM BARU</b>\n\n` +
         `👤 Pemohon: <b>${newReq.teacherName}</b>\n` +
         `📝 Praktikum: ${newReq.practicumTitle}\n` +
-        `📅 Tanggal Butuh: ${newReq.dateNeeded}\n\n` +
+        `📅 Tanggal Butuh: ${formatDate(newReq.dateNeeded)}\n\n` +
         `🧪 <b>Daftar Bahan:</b>\n${itemsSummary}`
       );
     } catch {
@@ -1114,7 +1123,7 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newSop: SOPItem = {
       ...item,
       id,
-      lastUpdated: today,
+      lastUpdated: formatDate(today),
     };
     setSopList((prev) => [...prev, newSop]);
     try {
@@ -1126,11 +1135,12 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateSop = async (id: string, updates: Partial<SOPItem>) => {
     const today = new Date().toISOString().split('T')[0];
+    const formattedToday = formatDate(today);
     setSopList((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, ...updates, lastUpdated: today } : s))
+      prev.map((s) => (s.id === id ? { ...s, ...updates, lastUpdated: formattedToday } : s))
     );
     try {
-      await updateDoc(doc(db, 'sops', id), cleanFirestoreData({ ...updates, lastUpdated: today }));
+      await updateDoc(doc(db, 'sops', id), cleanFirestoreData({ ...updates, lastUpdated: formattedToday }));
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `sops/${id}`);
     }
@@ -1172,7 +1182,7 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const clearCurrentMonthBorrows = async () => {
     const currentMonth = '2026-10';
     for (const b of borrows) {
-      if (b.borrowDate.startsWith(currentMonth)) {
+      if (b.borrowDate && (b.borrowDate.includes(currentMonth) || b.borrowDate.endsWith('10-2026'))) {
         await deleteDoc(doc(db, 'borrows', b.id));
       }
     }

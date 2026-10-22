@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
 import { BorrowRecord, BorrowItem, DamagedItemReport } from '../types';
+import { formatDate } from '../utils/dateUtils';
 
 interface DamagedSelection {
   selected: boolean;
@@ -478,8 +479,8 @@ export const AjuanAlatView: React.FC = () => {
                         {totalQty} unit
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap font-mono tabular-nums text-[11px] text-slate-600">
-                        <div>Pinjam: {record.borrowDate}</div>
-                        <div className="text-slate-400">Batas: {record.returnDueDate}</div>
+                        <div>Pinjam: {formatDate(record.borrowDate)}</div>
+                        <div className="text-slate-400">Batas: {formatDate(record.returnDueDate)}</div>
                       </td>
                       <td className="px-4 py-3.5 text-slate-600 text-[11px] max-w-[200px] truncate" title={record.purpose}>
                         {record.purpose}
@@ -624,7 +625,7 @@ export const AjuanAlatView: React.FC = () => {
                   ))}
                 </div>
                 <div className="text-slate-500 font-mono text-[11px] pt-1 border-t border-slate-200/60">
-                  Jatuh Tempo: {returningRecord.returnDueDate}
+                  Jatuh Tempo: {formatDate(returningRecord.returnDueDate)}
                 </div>
               </div>
 
@@ -878,7 +879,7 @@ export const AjuanAlatView: React.FC = () => {
                     : `${deletingRecord.equipmentName} (${deletingRecord.quantity} unit)`}
                 </div>
                 <div className="flex items-center justify-between text-slate-500 font-mono text-[11px] pt-1 border-t border-slate-200/60">
-                  <span>Tgl Pinjam: {deletingRecord.borrowDate}</span>
+                  <span>Tgl Pinjam: {formatDate(deletingRecord.borrowDate)}</span>
                   <span className="font-semibold text-slate-700">Status: {deletingRecord.status}</span>
                 </div>
               </div>
@@ -1065,9 +1066,16 @@ export const AjuanAlatView: React.FC = () => {
               </div>
 
               <div className="pt-2">
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Rencana Tanggal Pengembalian *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">
+                    Rencana Tanggal Pengembalian * <span className="text-[10px] text-slate-400 font-normal">(dd-mm-yyyy)</span>
+                  </label>
+                  {returnDueDate && (
+                    <span className="text-[10px] font-mono font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                      {formatDate(returnDueDate)}
+                    </span>
+                  )}
+                </div>
                 <input
                   type="date"
                   required

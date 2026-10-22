@@ -13,6 +13,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
+import { formatDate } from '../utils/dateUtils';
 
 export const DashboardView: React.FC = () => {
   const {
@@ -27,10 +28,10 @@ export const DashboardView: React.FC = () => {
     resetToDefaultData,
   } = useLab();
 
-  // Current month filter (e.g., 2026-10)
+  // Current month filter (e.g., 2026-10 or 10-2026)
   const currentMonthKey = '2026-10';
   const currentMonthBorrows = borrows.filter(
-    (b) => b.borrowDate && b.borrowDate.startsWith(currentMonthKey)
+    (b) => b.borrowDate && (b.borrowDate.includes(currentMonthKey) || b.borrowDate.endsWith('10-2026'))
   );
 
   // Statistics
@@ -239,7 +240,7 @@ export const DashboardView: React.FC = () => {
                     {currentMonthBorrows.slice(0, 5).map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50/60 transition-colors">
                         <td className="px-6 py-3 text-xs font-mono tabular-nums text-slate-500 whitespace-nowrap">
-                          {record.borrowDate.split('-').slice(1).reverse().join('/')}
+                          {formatDate(record.borrowDate)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <p className="font-medium text-slate-900 text-xs truncate max-w-[150px]">

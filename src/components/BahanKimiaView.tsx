@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
 import { Chemical, HazardType } from '../types';
+import { formatDate, toInputDate } from '../utils/dateUtils';
 
 // Robust CSV Parsing functions (supports comma and semicolon delimiters, and quoted strings)
 function parseCSVLine(line: string, delimiter: string = ','): string[] {
@@ -387,7 +388,7 @@ export const BahanKimiaView: React.FC = () => {
       c.unit,
       c.minStock,
       `"${c.location}"`,
-      c.expiryDate,
+      formatDate(c.expiryDate),
       `"${c.hazards.join(', ')}"`,
       `"${(c.notes || '').replace(/"/g, '""')}"`,
     ]);
@@ -410,10 +411,10 @@ export const BahanKimiaView: React.FC = () => {
       '\uFEFF' +
       [
         'Kode Bahan,Kategori Lab,Nama Bahan,Rumus Kimia,No CAS,Wujud,Stok,Satuan,Batas Min,Lokasi,Kadaluarsa,Bahaya,Catatan',
-        'BHM-KIM-012,"Biokim Putra","Asam Klorida (HCl) 37%",HCl,7647-01-0,Cair,1000,mL,250,"Lemari Asam B3",2028-12-31,korosif,"Simpan di lemari berventilasi khusus"',
-        'BHM-KIM-013,"Biokim Putri","Natrium Hidroksida (NaOH) Pelet",NaOH,1310-73-2,Padat,500,gram,100,"Rak Basa Padat",2029-06-30,korosif,"Higroskopis, tutup rapat"',
-        'BHM-KIM-014,"Fisika Putri","Etanol (C2H5OH) 96%",C2H5OH,64-17-5,Cair,2000,mL,500,"Lemari Flammable",2027-10-15,"flammable, irritant","Jauhkan dari percikan api"',
-        'BHM-KIM-015,"Biokim Putri","Indikator Fenolftalein (PP) 1%",C20H14O4,77-09-8,Indikator,250,mL,50,"Rak Indikator & Pewarna",2029-12-31,safe,"Tray larutan indikator praktikum"',
+        'BHM-KIM-012,"Biokim Putra","Asam Klorida (HCl) 37%",HCl,7647-01-0,Cair,1000,mL,250,"Lemari Asam B3",31-12-2028,korosif,"Simpan di lemari berventilasi khusus"',
+        'BHM-KIM-013,"Biokim Putri","Natrium Hidroksida (NaOH) Pelet",NaOH,1310-73-2,Padat,500,gram,100,"Rak Basa Padat",30-06-2029,korosif,"Higroskopis, tutup rapat"',
+        'BHM-KIM-014,"Fisika Putri","Etanol (C2H5OH) 96%",C2H5OH,64-17-5,Cair,2000,mL,500,"Lemari Flammable",15-10-2027,"flammable, irritant","Jauhkan dari percikan api"',
+        'BHM-KIM-015,"Biokim Putri","Indikator Fenolftalein (PP) 1%",C20H14O4,77-09-8,Indikator,250,mL,50,"Rak Indikator & Pewarna",31-12-2029,safe,"Tray larutan indikator praktikum"',
       ].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -574,7 +575,8 @@ export const BahanKimiaView: React.FC = () => {
           const parsedStock = Math.max(0, parseFloat(row[stockIdx] || '0') || 0);
           const parsedMinStock = Math.max(0, parseFloat(row[minStockIdx] || '50') || 50);
           const rawLoc = (row[locationIdx] || '').trim().replace(/^["']|["']$/g, '') || 'Lemari Reagen B3';
-          const rawExpiry = (row[expiryIdx] || '').trim().replace(/^["']|["']$/g, '') || '2028-12-31';
+          const rawExpiry = (row[expiryIdx] || '').trim().replace(/^["']|["']$/g, '') || '31-12-2028';
+          const parsedExpiry = formatDate(rawExpiry) || '31-12-2028';
           const parsedHazards = parseHazards(row[hazardIdx] || '');
           const rawNotes = notesIdx < row.length ? (row[notesIdx] || '').trim().replace(/^["']|["']$/g, '') : '';
 
@@ -596,7 +598,7 @@ export const BahanKimiaView: React.FC = () => {
             minStock: parsedMinStock,
             location: rawLoc,
             hazards: parsedHazards,
-            expiryDate: rawExpiry,
+            expiryDate: parsedExpiry,
             notes: rawNotes || undefined,
           };
 
@@ -875,7 +877,7 @@ export const BahanKimiaView: React.FC = () => {
                         {c.location}
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap font-mono tabular-nums text-[11px] text-slate-500">
-                        {c.expiryDate}
+                        {formatDate(c.expiryDate)}
                       </td>
                       <td className="px-4 py-3.5 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
@@ -1240,12 +1242,19 @@ export const BahanKimiaView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Tanggal Kadaluarsa
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Tanggal Kadaluarsa <span className="text-[10px] text-slate-400 font-normal">(dd-mm-yyyy)</span>
+                  </label>
+                  {expiryDate && (
+                    <span className="text-[10px] font-mono font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                      {formatDate(expiryDate)}
+                    </span>
+                  )}
+                </div>
                 <input
                   type="date"
-                  value={expiryDate}
+                  value={toInputDate(expiryDate)}
                   onChange={(e) => setExpiryDate(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
                 />
@@ -1502,12 +1511,19 @@ export const BahanKimiaView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Tanggal Kadaluarsa
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Tanggal Kadaluarsa <span className="text-[10px] text-slate-400 font-normal">(dd-mm-yyyy)</span>
+                  </label>
+                  {editingChem.expiryDate && (
+                    <span className="text-[10px] font-mono font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                      {formatDate(editingChem.expiryDate)}
+                    </span>
+                  )}
+                </div>
                 <input
                   type="date"
-                  value={editingChem.expiryDate}
+                  value={toInputDate(editingChem.expiryDate)}
                   onChange={(e) => setEditingChem({ ...editingChem, expiryDate: e.target.value })}
                   className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg"
                 />
@@ -1780,7 +1796,7 @@ export const BahanKimiaView: React.FC = () => {
                               {c.location}
                             </td>
                             <td className="py-2 px-2.5 font-mono tabular-nums text-[11px] text-slate-500 whitespace-nowrap">
-                              {c.expiryDate}
+                              {formatDate(c.expiryDate)}
                             </td>
                           </tr>
                         ))}

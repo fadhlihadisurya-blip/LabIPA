@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
 import { Teacher, TeacherSubject, Student, BorrowRecord } from '../types';
+import { formatDate } from '../utils/dateUtils';
 
 export const TEACHER_SUBJECT_OPTIONS = [
   'PAI',
@@ -1602,8 +1603,8 @@ export const DatabaseGuruMuridView: React.FC = () => {
                       </span>
                     </div>
                     <div className="text-[11px] text-slate-600 flex items-center gap-3">
-                      <span>Pinjam: {b.borrowDate}</span>
-                      <span className="text-red-700 font-semibold">Tenggat: {b.returnDueDate}</span>
+                      <span>Pinjam: {formatDate(b.borrowDate)}</span>
+                      <span className="text-red-700 font-semibold">Tenggat: {formatDate(b.returnDueDate)}</span>
                     </div>
                     {b.purpose && (
                       <p className="text-[11px] text-slate-500 italic">

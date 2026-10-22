@@ -24,6 +24,7 @@ import { useLab } from '../context/LabContext';
 import { SOPItem, SOPStep } from '../types';
 import { INITIAL_SOPS } from '../data/initialData';
 import { processImageWithoutCrop } from '../utils/imageCompressor';
+import { formatDate } from '../utils/dateUtils';
 
 export const SopPanduanView: React.FC = () => {
   const { sopList, addSop, updateSop, deleteSop, userMode } = useLab();
@@ -473,7 +474,7 @@ export const SopPanduanView: React.FC = () => {
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-slate-400 font-mono">
-                    Revisi Terakhir: {selectedSop.lastUpdated}
+                    Revisi Terakhir: {formatDate(selectedSop.lastUpdated)}
                   </span>
                   {userMode === 'laboran' && (
                     <div className="flex items-center gap-1 ml-2">
