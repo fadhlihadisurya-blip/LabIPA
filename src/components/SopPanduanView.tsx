@@ -14,11 +14,11 @@ import {
   Edit3,
   Trash2,
   X,
-  Upload,
   Image as ImageIcon,
   Type,
   Loader2,
   ZoomIn,
+  Link2,
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
 import { SOPItem, SOPStep } from '../types';
@@ -117,23 +117,6 @@ export const SopPanduanView: React.FC = () => {
     setSteps(newSteps);
   };
 
-  const handleStepImageUpload = async (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setIsCompressing(true);
-      // Sesuaikan ukuran tanpa crop dan tanpa kompresi buram (mempertahankan rasio aspek 100%)
-      const processed = await processImageWithoutCrop(file, 1500);
-      handleStepContentChange(index, processed);
-    } catch (err) {
-      console.error('Failed to process step image:', err);
-      alert('Gagal memproses gambar. Mohon pilih format gambar JPG/JPEG/PNG yang valid.');
-    } finally {
-      setIsCompressing(false);
-      e.target.value = '';
-    }
-  };
-
   const addStepItem = () => {
     setSteps([...steps, { type: 'text', content: '' }]);
   };
@@ -144,22 +127,6 @@ export const SopPanduanView: React.FC = () => {
       return;
     }
     setSteps(steps.filter((_, i) => i !== index));
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setIsCompressing(true);
-      const processed = await processImageWithoutCrop(file, 1500);
-      setImageUrl(processed);
-    } catch (err) {
-      console.error('Failed to process main image:', err);
-      alert('Gagal memproses gambar. Mohon pilih format gambar JPG/JPEG/PNG yang valid.');
-    } finally {
-      setIsCompressing(false);
-      e.target.value = '';
-    }
   };
 
   const handleSaveSop = async (e: React.FormEvent) => {
@@ -679,49 +646,11 @@ export const SopPanduanView: React.FC = () => {
                 />
               </div>
 
-              {/* Optional Main Illustration Image */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Gambar Utama Dokumen SOP (Opsional)
-                </label>
-                <div className="flex items-center gap-3">
-                  <label className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer border border-slate-200 transition-colors">
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Pilih Gambar Utama...</span>
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/jpg,image/png"
-                      onChange={handleImageUpload}
-                      className="sr-only"
-                    />
-                  </label>
-                  {imageUrl ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-emerald-600 font-medium">Terlampir</span>
-                      <button
-                        type="button"
-                        onClick={() => setImageUrl('')}
-                        className="text-xs text-red-600 hover:underline"
-                      >
-                        Hapus
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-slate-400">Tidak ada</span>
-                  )}
-                </div>
-                {imageUrl && (
-                  <div className="mt-2 w-36 h-24 rounded-lg overflow-hidden border border-slate-200 bg-white p-1">
-                    <img src={imageUrl} alt="Preview" className="w-full h-full object-contain" />
-                  </div>
-                )}
-              </div>
-
-              {/* Langkah-Langkah Pelaksanaan dengan pilihan jenis Teks atau Gambar JPG/JPEG */}
+              {/* Langkah-Langkah Pelaksanaan dengan pilihan jenis Teks atau Link Gambar */}
               <div className="space-y-3 pt-2 border-t border-slate-100">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-                    Langkah-Langkah Pelaksanaan (Pilihan Teks / Gambar JPG, JPEG, PNG) *
+                    Langkah-Langkah Pelaksanaan (Pilihan Teks / Link Gambar) *
                   </label>
                   <button
                     type="button"
@@ -758,7 +687,7 @@ export const SopPanduanView: React.FC = () => {
                                 step.type === 'image' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
                               }`}
                             >
-                              Gambar (JPG/PNG)
+                              Link Gambar
                             </button>
                           </div>
 
@@ -783,26 +712,72 @@ export const SopPanduanView: React.FC = () => {
                         />
                       ) : (
                         <div className="space-y-2">
-                          <div className="flex items-center gap-3">
-                            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer border border-slate-300 transition-colors shadow-2xs">
-                              <Upload className="w-3.5 h-3.5 text-blue-600" />
-                              <span>Pilih File JPG / JPEG / PNG...</span>
-                              <input
-                                type="file"
-                                accept="image/jpeg,image/jpg,image/png"
-                                onChange={(e) => handleStepImageUpload(index, e)}
-                                className="sr-only"
-                              />
-                            </label>
-                            {step.content ? (
-                              <span className="text-xs text-emerald-700 font-medium">Gambar berhasil dilampirkan</span>
-                            ) : (
-                              <span className="text-xs text-slate-500">Belum ada file dipilih</span>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                              <Link2 className="w-3.5 h-3.5" />
+                            </div>
+                            <input
+                              type="text"
+                              value={step.content}
+                              onChange={(e) => handleStepContentChange(index, e.target.value)}
+                              placeholder="Masukkan link/URL gambar (contoh: https://... format JPG, JPEG, PNG, WebP)"
+                              className="w-full pl-9 pr-8 py-2 text-xs border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono"
+                            />
+                            {step.content && (
+                              <button
+                                type="button"
+                                onClick={() => handleStepContentChange(index, '')}
+                                className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                                title="Hapus link gambar"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
                             )}
                           </div>
+                          <p className="text-[11px] text-slate-500">
+                            Tempelkan tautan langsung file gambar online (format: JPG, JPEG, PNG, WebP).
+                          </p>
+
                           {step.content && (
-                            <div className="w-44 h-32 rounded-lg overflow-hidden border border-slate-200 bg-white p-1 shadow-2xs">
-                              <img src={step.content} alt={`Langkah ${index + 1}`} className="w-full h-full object-contain" />
+                            <div className="flex items-start gap-3 p-2.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                              <div className="w-32 h-24 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 p-1 shrink-0 flex items-center justify-center">
+                                <img
+                                  src={step.content}
+                                  alt={`Pratinjau Langkah ${index + 1}`}
+                                  className="w-full h-full object-contain cursor-zoom-in rounded"
+                                  onClick={() => setPreviewImage({ src: step.content, title: `Langkah #${index + 1}` })}
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="90" viewBox="0 0 120 90"><rect width="120" height="90" fill="%23f1f5f9"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="10">Link tidak valid</text></svg>';
+                                  }}
+                                />
+                              </div>
+                              <div className="text-xs space-y-1.5 py-0.5 min-w-0 flex-1">
+                                <span className="font-semibold text-slate-800 flex items-center gap-1.5">
+                                  <ImageIcon className="w-3.5 h-3.5 text-blue-600" /> Pratinjau Gambar Langkah #{index + 1}
+                                </span>
+                                <p className="text-[11px] text-slate-500 truncate font-mono" title={step.content}>
+                                  {step.content}
+                                </p>
+                                <div className="pt-0.5 flex flex-wrap items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewImage({ src: step.content, title: `Langkah #${index + 1}` })}
+                                    className="text-[11px] font-semibold text-blue-600 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <ZoomIn className="w-3 h-3" /> Perbesar Tampilan
+                                  </button>
+                                  {step.content.startsWith('http') && (
+                                    <a
+                                      href={step.content}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-[11px] font-semibold text-slate-500 hover:text-slate-700 inline-flex items-center gap-1"
+                                    >
+                                      <ExternalLink className="w-3 h-3" /> Buka Tab Baru
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           )}
                         </div>
