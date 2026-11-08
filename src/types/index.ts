@@ -7,15 +7,26 @@ export type LabSection =
   | 'ajuan-alat'
   | 'sop'
   | 'msds'
-  | 'database-guru-murid';
+  | 'database-guru-murid'
+  | 'print-laporan'
+  | 'setting';
 
 export type UserMode = 'portal-umum' | 'laboran';
+
+export interface SupervisorConfig {
+  title: string;
+  name: string;
+  nip: string;
+  nipType?: 'NIP' | 'NIY' | 'NPK';
+  institution?: string;
+}
 
 export interface LaboranUser {
   email: string;
   name: string;
   role: string;
   nip?: string;
+  nipType?: 'NIP' | 'NIY' | 'NPY';
   isLoggedIn: boolean;
 }
 

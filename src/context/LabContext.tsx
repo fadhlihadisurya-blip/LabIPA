@@ -15,6 +15,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
+  updatePassword,
   onAuthStateChanged,
   User as FirebaseUser,
 } from 'firebase/auth';
@@ -23,6 +24,7 @@ import {
   LabSection,
   UserMode,
   LaboranUser,
+  SupervisorConfig,
   Chemical,
   Equipment,
   BorrowRecord,
@@ -142,22 +144,58 @@ interface LabContextType {
   telegramConfig: TelegramConfig;
   updateTelegramConfig: (config: TelegramConfig) => void;
   sendTelegramMessage: (message: string) => Promise<boolean>;
+
+  supervisorConfig: SupervisorConfig;
+  updateSupervisorConfig: (config: Partial<SupervisorConfig>) => Promise<void>;
+  updateLaboranProfile: (profile: Partial<LaboranUser>) => Promise<void>;
+  updateLaboranPassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const LabContext = createContext<LabContextType | undefined>(undefined);
+
+export const DEFAULT_SUPERVISOR: SupervisorConfig = {
+  title: 'Kepala Laboratorium IPA',
+  name: 'Dr. H. Ahmad Fauzi, M.Pd',
+  nip: '19820415 200801 1 007',
+  nipType: 'NIP',
+  institution: 'SMAIT As-Syifa Boarding School Wanareja',
+};
 
 const DEFAULT_LABORAN: LaboranUser = {
   email: 'fadhlihadisurya@gmail.com',
   name: 'Fadhli Hadi Surya',
   role: 'Kepala Laboran IPA SMAIT As-Syifa',
-  nip: '198904122014021003',
+  nip: '19890412 201402 1 003',
+  nipType: 'NIP',
   isLoggedIn: true,
 };
 
 export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeSection, setActiveSection] = useState<LabSection>('dashboard');
   const [userMode, setUserMode] = useState<UserMode>('portal-umum');
-  const [laboranUser, setLaboranUser] = useState<LaboranUser>(DEFAULT_LABORAN);
+  const [laboranUser, setLaboranUser] = useState<LaboranUser>(() => {
+    const saved = localStorage.getItem('simlab_laboran_profile');
+    if (saved) {
+      try {
+        return { ...DEFAULT_LABORAN, ...JSON.parse(saved) };
+      } catch (e) {
+        // ignore
+      }
+    }
+    return DEFAULT_LABORAN;
+  });
+
+  const [supervisorConfig, setSupervisorConfig] = useState<SupervisorConfig>(() => {
+    const saved = localStorage.getItem('simlab_supervisor_config');
+    if (saved) {
+      try {
+        return { ...DEFAULT_SUPERVISOR, ...JSON.parse(saved) };
+      } catch (e) {
+        // ignore
+      }
+    }
+    return DEFAULT_SUPERVISOR;
+  });
 
   // 5 minutes inactivity timeout for laboran mode
   useEffect(() => {
@@ -505,6 +543,30 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     );
 
+    const unsubSupervisor = onSnapshot(
+      doc(db, 'settings', 'supervisor'),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data() as SupervisorConfig;
+          setSupervisorConfig((prev) => ({ ...prev, ...data }));
+          localStorage.setItem('simlab_supervisor_config', JSON.stringify(data));
+        }
+      },
+      () => {}
+    );
+
+    const unsubLaboran = onSnapshot(
+      doc(db, 'settings', 'laboran_profile'),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data() as Partial<LaboranUser>;
+          setLaboranUser((prev) => ({ ...prev, ...data }));
+          localStorage.setItem('simlab_laboran_profile', JSON.stringify(data));
+        }
+      },
+      () => {}
+    );
+
     return () => {
       unsubChem();
       unsubEq();
@@ -514,6 +576,8 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubTeachers();
       unsubStudents();
       unsubSops();
+      unsubSupervisor();
+      unsubLaboran();
     };
   }, []);
 
@@ -563,16 +627,27 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     email: string,
     password: string
   ): Promise<{ success: boolean; error?: string }> => {
+    // 1. Check custom saved password for laboran
+    const customPass = localStorage.getItem('simlab_laboran_custom_password');
+    if (customPass && password === customPass) {
+      setLaboranUser((prev) => ({
+        ...prev,
+        email: email || prev.email,
+        isLoggedIn: true,
+      }));
+      setUserMode('laboran');
+      return { success: true };
+    }
+
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      setLaboranUser({
+      setLaboranUser((prev) => ({
+        ...prev,
         email: user.email || email,
-        name: user.displayName || (email.toLowerCase().includes('fadhli') ? 'Fadhli Hadi Surya' : email.split('@')[0]),
-        role: 'Kepala Laboran IPA (Email/Password Auth)',
-        nip: '198904122014021003',
+        name: prev.name || user.displayName || (email.toLowerCase().includes('fadhli') ? 'Fadhli Hadi Surya' : email.split('@')[0]),
         isLoggedIn: true,
-      });
+      }));
       setUserMode('laboran');
       return { success: true };
     } catch (err: any) {
@@ -591,6 +666,66 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return { success: false, error: errorMsg };
     }
+  };
+
+  const updateLaboranPassword = async (
+    newPassword: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, error: 'Kata sandi baru minimal 6 karakter.' };
+    }
+
+    localStorage.setItem('simlab_laboran_custom_password', newPassword);
+
+    if (auth.currentUser) {
+      try {
+        await updatePassword(auth.currentUser, newPassword);
+      } catch (err: any) {
+        console.warn('Firebase Auth updatePassword warning:', err);
+      }
+    }
+
+    try {
+      await setDoc(
+        doc(db, 'settings', 'laboran_security'),
+        {
+          passwordUpdatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    } catch (_) {}
+
+    return { success: true };
+  };
+
+  const updateLaboranProfile = async (
+    profile: Partial<LaboranUser>
+  ): Promise<void> => {
+    const updated: LaboranUser = { ...laboranUser, ...profile };
+    setLaboranUser(updated);
+    localStorage.setItem('simlab_laboran_profile', JSON.stringify(updated));
+
+    if (auth.currentUser && profile.name) {
+      try {
+        await updateProfile(auth.currentUser, { displayName: profile.name });
+      } catch (_) {}
+    }
+
+    try {
+      await setDoc(doc(db, 'settings', 'laboran_profile'), cleanFirestoreData(updated));
+    } catch (_) {}
+  };
+
+  const updateSupervisorConfig = async (
+    config: Partial<SupervisorConfig>
+  ): Promise<void> => {
+    const updated: SupervisorConfig = { ...supervisorConfig, ...config };
+    setSupervisorConfig(updated);
+    localStorage.setItem('simlab_supervisor_config', JSON.stringify(updated));
+
+    try {
+      await setDoc(doc(db, 'settings', 'supervisor'), cleanFirestoreData(updated));
+    } catch (_) {}
   };
 
   const registerWithEmailPassword = async (
@@ -1258,6 +1393,10 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         telegramConfig,
         updateTelegramConfig,
         sendTelegramMessage,
+        supervisorConfig,
+        updateSupervisorConfig,
+        updateLaboranProfile,
+        updateLaboranPassword,
       }}
     >
       {children}

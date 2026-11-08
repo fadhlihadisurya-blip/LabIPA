@@ -32,6 +32,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
         return 'Database MSDS';
       case 'database-guru-murid':
         return 'Database Guru & Murid';
+      case 'print-laporan':
+        return 'Print Laporan Laboratorium';
+      case 'setting':
+        return 'Pengaturan Sistem & Profil Laboran';
       default:
         return 'Laboratorium IPA';
     }

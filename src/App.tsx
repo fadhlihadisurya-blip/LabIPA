@@ -16,6 +16,8 @@ import { AjuanAlatView } from './components/AjuanAlatView';
 import { SopPanduanView } from './components/SopPanduanView';
 import { MsdsDatabaseView } from './components/MsdsDatabaseView';
 import { DatabaseGuruMuridView } from './components/DatabaseGuruMuridView';
+import { PrintLaporanView } from './components/PrintLaporanView';
+import { SettingsView } from './components/SettingsView';
 import { LaboranAuthModal } from './components/LaboranAuthModal';
 
 const MainLayout: React.FC = () => {
@@ -42,6 +44,10 @@ const MainLayout: React.FC = () => {
         return <MsdsDatabaseView />;
       case 'database-guru-murid':
         return <DatabaseGuruMuridView />;
+      case 'print-laporan':
+        return <PrintLaporanView />;
+      case 'setting':
+        return <SettingsView />;
       default:
         return <DashboardView />;
     }

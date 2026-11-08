@@ -113,6 +113,12 @@ service cloud.firestore {
       allow delete: if isValidId(sopId);
     }
 
+    // Settings Collection (Supervisor, Laboran Profile, System Config)
+    match /settings/{settingId} {
+      allow read: if true;
+      allow create, update, delete: if isValidId(settingId);
+    }
+
     // Health check test collection
     match /test/{testId} {
       allow read: if true;

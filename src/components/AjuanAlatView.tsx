@@ -18,7 +18,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
-import { BorrowRecord, BorrowItem, DamagedItemReport } from '../types';
+import { BorrowRecord, BorrowItem, DamagedItemReport, Equipment } from '../types';
 import { formatDate, parseDateToTimestamp } from '../utils/dateUtils';
 
 interface DamagedSelection {
@@ -27,6 +27,156 @@ interface DamagedSelection {
   damageType: string;
   notes: string;
 }
+
+interface EquipmentComboboxProps {
+  value: string;
+  equipmentList: Equipment[];
+  onChange: (equipment: Equipment) => void;
+}
+
+const EquipmentCombobox: React.FC<EquipmentComboboxProps> = ({
+  value,
+  equipmentList,
+  onChange,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedEquipment = equipmentList.find((eq) => eq.id === value);
+  const [query, setQuery] = useState(selectedEquipment ? selectedEquipment.name : '');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (selectedEquipment) {
+      setQuery(selectedEquipment.name);
+    } else {
+      setQuery('');
+    }
+  }, [value, selectedEquipment]);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        if (selectedEquipment) {
+          setQuery(selectedEquipment.name);
+        }
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [selectedEquipment]);
+
+  const filteredEquipment = equipmentList.filter((eq) => {
+    const q = query.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      eq.name.toLowerCase().includes(q) ||
+      (eq.category && eq.category.toLowerCase().includes(q)) ||
+      (eq.code && eq.code.toLowerCase().includes(q)) ||
+      (eq.location && eq.location.toLowerCase().includes(q))
+    );
+  });
+
+  const handleSelect = (eq: Equipment) => {
+    onChange(eq);
+    setQuery(eq.name);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className={`relative flex-1 ${isOpen ? 'z-40' : 'z-10'}`} ref={containerRef}>
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onFocus={() => setIsOpen(true)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsOpen(true);
+          }}
+          placeholder="Ketik untuk mencari alat laboratorium..."
+          className="w-full px-3 py-2 pr-14 border border-slate-300 rounded-lg bg-white font-medium text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500 transition-all shadow-2xs"
+        />
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          {query && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery('');
+                setIsOpen(true);
+              }}
+              className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors cursor-pointer"
+              title="Hapus pencarian"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setIsOpen((prev) => !prev)}
+            className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors cursor-pointer"
+            title="Buka daftar alat"
+          >
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${isOpen ? 'rotate-180 text-blue-600' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-56 overflow-y-auto animate-in fade-in-50 duration-100">
+          {filteredEquipment.length > 0 ? (
+            filteredEquipment.map((eq) => {
+              const isSelected = eq.id === value;
+              return (
+                <div
+                  key={eq.id}
+                  onClick={() => handleSelect(eq)}
+                  className={`px-3 py-2 cursor-pointer flex items-center justify-between text-xs border-b border-slate-100 last:border-0 transition-colors ${
+                    isSelected ? 'bg-blue-50/80 font-semibold' : 'hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex flex-col gap-0.5 pr-2 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold text-slate-800 truncate">{eq.name}</span>
+                      <span className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                        {eq.code}
+                      </span>
+                      <span className="text-[10px] font-medium text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        {eq.category}
+                      </span>
+                    </div>
+                    {eq.location && (
+                      <span className="text-[10px] text-slate-400">
+                        Lokasi: {eq.location}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        eq.goodCount > 0
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-red-50 text-red-600 border border-red-200'
+                      }`}
+                    >
+                      Siap Pakai: {eq.goodCount} unit
+                    </span>
+                    {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="px-3 py-3 text-center text-xs text-slate-400">
+              Tidak ada alat laboratorium yang cocok dengan "{query}"
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const AjuanAlatView: React.FC = () => {
   const {
@@ -1029,39 +1179,35 @@ export const AjuanAlatView: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                <div className="space-y-3">
                   {borrowItems.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
-                      <div className="flex-1">
-                        <select
-                          value={item.equipmentId}
-                          onChange={(e) => handleItemEqChange(index, e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white font-medium text-xs"
-                        >
-                          {equipment.map((eq) => (
-                            <option key={eq.id} value={eq.id}>
-                              {eq.name} ({eq.category}) — Siap Pakai: {eq.goodCount} unit
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="w-24">
+                    <div
+                      key={index}
+                      className="flex items-start sm:items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl relative"
+                    >
+                      <EquipmentCombobox
+                        value={item.equipmentId}
+                        equipmentList={equipment}
+                        onChange={(eq) => handleItemEqChange(index, eq.id)}
+                      />
+                      <div className="w-24 shrink-0">
                         <input
                           type="number"
                           min={1}
-                          max={20}
+                          max={100}
                           required
                           value={item.quantity}
                           onChange={(e) => handleItemQtyChange(index, Number(e.target.value))}
                           placeholder="Jml"
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white font-mono text-center font-bold text-xs"
+                          title="Jumlah alat yang dipinjam"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white font-mono text-center font-bold text-xs focus:ring-2 focus:ring-blue-500 shadow-2xs"
                         />
                       </div>
                       {borrowItems.length > 1 && (
                         <button
                           type="button"
                           onClick={() => handleRemoveItemRow(index)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
                           title="Hapus baris alat"
                         >
                           <Trash2 className="w-4 h-4" />

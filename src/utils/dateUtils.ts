@@ -136,3 +136,44 @@ export function parseDateToTimestamp(dateStr?: string | null): number {
   return 0;
 }
 
+/**
+ * Extract { day, month, year } integers from any date string
+ * Month is 1-indexed (1 = Januari, 12 = Desember)
+ */
+export function getDateParts(dateStr?: string | null): { day: number; month: number; year: number } | null {
+  if (!dateStr || dateStr.trim() === '' || dateStr === '-') return null;
+  const str = dateStr.trim();
+
+  // dd-mm-yyyy or dd/mm/yyyy
+  const dmy = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (dmy) {
+    return {
+      day: parseInt(dmy[1], 10),
+      month: parseInt(dmy[2], 10),
+      year: parseInt(dmy[3], 10),
+    };
+  }
+
+  // yyyy-mm-dd or yyyy/mm/dd
+  const ymd = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (ymd) {
+    return {
+      day: parseInt(ymd[3], 10),
+      month: parseInt(ymd[2], 10),
+      year: parseInt(ymd[1], 10),
+    };
+  }
+
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return {
+      day: d.getDate(),
+      month: d.getMonth() + 1,
+      year: d.getFullYear(),
+    };
+  }
+
+  return null;
+}
+
+

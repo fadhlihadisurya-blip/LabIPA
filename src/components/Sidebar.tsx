@@ -11,6 +11,8 @@ import {
   User,
   ShieldCheck,
   Users,
+  Printer,
+  Settings,
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
 import { LabSection } from '../types';
@@ -64,6 +66,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
             id: 'database-guru-murid' as LabSection,
             label: 'Database Guru & Murid',
             icon: Users,
+          },
+          {
+            id: 'print-laporan' as LabSection,
+            label: 'Print Laporan',
+            icon: Printer,
+          },
+          {
+            id: 'setting' as LabSection,
+            label: 'Setting',
+            icon: Settings,
           },
         ]
       : []),

@@ -27,7 +27,7 @@ import { processImageWithoutCrop } from '../utils/imageCompressor';
 import { formatDate } from '../utils/dateUtils';
 
 export const SopPanduanView: React.FC = () => {
-  const { sopList, addSop, updateSop, deleteSop, userMode } = useLab();
+  const { sopList, addSop, updateSop, deleteSop, userMode, supervisorConfig } = useLab();
 
   const [selectedSop, setSelectedSop] = useState<SOPItem>(sopList[0] || INITIAL_SOPS[0]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -557,7 +557,9 @@ export const SopPanduanView: React.FC = () => {
             <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row justify-between text-[11px] text-slate-400 gap-4">
               <div>
                 <p>Disahkan oleh:</p>
-                <p className="font-semibold text-slate-700 mt-1">Kepala Laboratorium IPA SMAIT As-Syifa</p>
+                <p className="font-semibold text-slate-700 mt-1">
+                  {supervisorConfig?.title || 'Kepala Laboratorium IPA'} SMAIT As-Syifa
+                </p>
               </div>
               <div>
                 <p>Pelaksana Teknis:</p>
