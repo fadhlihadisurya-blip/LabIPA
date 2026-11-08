@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
 import { VisitRequest } from '../types';
-import { formatDate } from '../utils/dateUtils';
+import { formatDate, parseDateToTimestamp } from '../utils/dateUtils';
 
 export const START_TIME_OPTIONS = [
   '07.00',
@@ -182,15 +182,24 @@ export const AjuanKunjunganView: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const filteredVisits = visits.filter((v) => {
-    const matchesSearch =
-      v.teacherName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.practicumTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (v.classGroup && v.classGroup.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesLab = labFilter === 'all' || v.labType === labFilter;
-    const matchesStatus = statusFilter === 'all' || v.status === statusFilter;
-    return matchesSearch && matchesLab && matchesStatus;
-  }).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '') || b.id.localeCompare(a.id));
+  const filteredVisits = visits
+    .filter((v) => {
+      const matchesSearch =
+        v.teacherName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        v.practicumTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (v.classGroup && v.classGroup.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesLab = labFilter === 'all' || v.labType === labFilter;
+      const matchesStatus = statusFilter === 'all' || v.status === statusFilter;
+      return matchesSearch && matchesLab && matchesStatus;
+    })
+    .sort((a, b) => {
+      const timeA = parseDateToTimestamp(a.createdAt) || parseDateToTimestamp(a.visitDate);
+      const timeB = parseDateToTimestamp(b.createdAt) || parseDateToTimestamp(b.visitDate);
+      if (timeB !== timeA) {
+        return timeB - timeA;
+      }
+      return b.id.localeCompare(a.id);
+    });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

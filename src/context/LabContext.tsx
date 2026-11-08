@@ -118,6 +118,7 @@ interface LabContextType {
   ) => Promise<void>;
   approveChemicalRequest: (id: string) => Promise<void>;
   rejectChemicalRequest: (id: string, reason?: string) => Promise<void>;
+  deleteChemicalRequest: (id: string) => Promise<void>;
 
   msdsList: MSDSItem[];
   sopList: SOPItem[];
@@ -1055,6 +1056,14 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const deleteChemicalRequest = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'chemical_requests', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `chemical_requests/${id}`);
+    }
+  };
+
   const addTeacher = async (item: Omit<Teacher, 'id'>) => {
     const newId = `tch-${Date.now()}`;
     const newTeacher: Teacher = { ...item, id: newId };
@@ -1230,6 +1239,7 @@ export const LabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addChemicalRequest,
         approveChemicalRequest,
         rejectChemicalRequest,
+        deleteChemicalRequest,
         msdsList,
         sopList,
         addSop,

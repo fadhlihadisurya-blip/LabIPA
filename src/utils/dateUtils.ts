@@ -99,3 +99,40 @@ export function getTodayDDMMYYYY(): string {
 export function getTodayYYYYMMDD(): string {
   return new Date().toISOString().split('T')[0];
 }
+
+/**
+ * Parse any date string (dd-mm-yyyy, yyyy-mm-dd, ISO, etc.) into epoch timestamp milliseconds for accurate chronological sorting.
+ */
+export function parseDateToTimestamp(dateStr?: string | null): number {
+  if (!dateStr || dateStr.trim() === '' || dateStr === '-') {
+    return 0;
+  }
+
+  const str = dateStr.trim();
+
+  // If in dd-mm-yyyy or dd/mm/yyyy
+  const dmyMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    return new Date(year, month, day).getTime();
+  }
+
+  // If in yyyy-mm-dd or yyyy/mm/dd
+  const ymdMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    return new Date(year, month, day).getTime();
+  }
+
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.getTime();
+  }
+
+  return 0;
+}
+

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
 import { BorrowRecord, BorrowItem, DamagedItemReport } from '../types';
-import { formatDate } from '../utils/dateUtils';
+import { formatDate, parseDateToTimestamp } from '../utils/dateUtils';
 
 interface DamagedSelection {
   selected: boolean;
@@ -201,7 +201,14 @@ export const AjuanAlatView: React.FC = () => {
     const matchesType = borrowerTypeFilter === 'all' || b.borrowerType === borrowerTypeFilter;
 
     return matchesSearch && matchesStatus && matchesType;
-  }).sort((a, b) => (b.borrowDate || '').localeCompare(a.borrowDate || '') || b.id.localeCompare(a.id));
+  }).sort((a, b) => {
+    const timeA = parseDateToTimestamp(a.borrowDate);
+    const timeB = parseDateToTimestamp(b.borrowDate);
+    if (timeB !== timeA) {
+      return timeB - timeA;
+    }
+    return b.id.localeCompare(a.id);
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

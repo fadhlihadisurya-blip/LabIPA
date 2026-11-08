@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useLab } from '../context/LabContext';
 import { ChemicalRequest, ChemicalRequestItem } from '../types';
-import { formatDate } from '../utils/dateUtils';
+import { formatDate, parseDateToTimestamp } from '../utils/dateUtils';
 
 export const AjuanBahanView: React.FC = () => {
   const {
@@ -26,6 +26,7 @@ export const AjuanBahanView: React.FC = () => {
     addChemicalRequest,
     approveChemicalRequest,
     rejectChemicalRequest,
+    deleteChemicalRequest,
     chemicals,
     userMode,
     teachers,
@@ -97,15 +98,24 @@ export const AjuanBahanView: React.FC = () => {
     },
   ]);
 
-  const filteredRequests = chemicalRequests.filter((r) => {
-    const matchesSearch =
-      r.teacherName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.practicumTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (r.classGroup ? r.classGroup.toLowerCase().includes(searchQuery.toLowerCase()) : false) ||
-      (r.requesterType && r.requesterType.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  }).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '') || b.id.localeCompare(a.id));
+  const filteredRequests = chemicalRequests
+    .filter((r) => {
+      const matchesSearch =
+        r.teacherName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        r.practicumTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (r.classGroup ? r.classGroup.toLowerCase().includes(searchQuery.toLowerCase()) : false) ||
+        (r.requesterType && r.requesterType.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      const timeA = parseDateToTimestamp(a.createdAt) || parseDateToTimestamp(a.dateNeeded);
+      const timeB = parseDateToTimestamp(b.createdAt) || parseDateToTimestamp(b.dateNeeded);
+      if (timeB !== timeA) {
+        return timeB - timeA;
+      }
+      return b.id.localeCompare(a.id);
+    });
 
   const handleAddItemRow = () => {
     const firstChem = chemicals[0];
@@ -291,6 +301,15 @@ export const AjuanBahanView: React.FC = () => {
                       )}
                     </span>
                     <span className="text-xs text-slate-400">·</span>
+                    {req.createdAt && (
+                      <>
+                        <span className="text-xs text-slate-500 inline-flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-blue-500" />
+                          Diajukan: <span className="font-mono font-medium">{formatDate(req.createdAt)}</span>
+                        </span>
+                        <span className="text-xs text-slate-400">·</span>
+                      </>
+                    )}
                     <span className="text-xs text-slate-500 inline-flex items-center gap-1">
                       <CalendarDays className="w-3.5 h-3.5" />
                       Dibutuhkan: <span className="font-mono font-medium">{formatDate(req.dateNeeded)}</span>
@@ -328,25 +347,45 @@ export const AjuanBahanView: React.FC = () => {
 
                 {/* Status & Laboran Actions */}
                 <div className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-end shrink-0">
-                  {req.status === 'Disetujui' && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Disetujui (Stok Dipotong)
-                    </span>
-                  )}
-                  {req.status === 'Menunggu Persetujuan' && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200">
-                      <Clock className="w-3.5 h-3.5 text-amber-600" /> Menunggu Laboran
-                    </span>
-                  )}
-                  {req.status === 'Ditolak' && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 px-2.5 py-1 rounded-md border border-red-200">
-                      <XCircle className="w-3.5 h-3.5 text-red-600" /> Ditolak
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {req.status === 'Disetujui' && (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Disetujui (Stok Dipotong)
+                      </span>
+                    )}
+                    {req.status === 'Menunggu Persetujuan' && (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200">
+                        <Clock className="w-3.5 h-3.5 text-amber-600" /> Menunggu Laboran
+                      </span>
+                    )}
+                    {req.status === 'Ditolak' && (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 px-2.5 py-1 rounded-md border border-red-200">
+                        <XCircle className="w-3.5 h-3.5 text-red-600" /> Ditolak
+                      </span>
+                    )}
+
+                    {/* Tombol Hapus Ajuan */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Apakah Anda yakin ingin menghapus ajuan bahan praktikum "${req.practicumTitle}" oleh ${req.teacherName}?`
+                          )
+                        ) {
+                          deleteChemicalRequest(req.id);
+                        }
+                      }}
+                      className="p-1.5 bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-500 hover:border-red-200 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                      title="Hapus ajuan bahan ini"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
 
                   {/* Laboran action */}
                   {userMode === 'laboran' && req.status === 'Menunggu Persetujuan' && (
-                    <div className="flex items-center gap-1.5 mt-2">
+                    <div className="flex items-center gap-1.5 mt-1">
                       <button
                         type="button"
                         onClick={() => {
@@ -358,7 +397,7 @@ export const AjuanBahanView: React.FC = () => {
                             approveChemicalRequest(req.id);
                           }
                         }}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-semibold transition-colors shadow-2xs"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
                       >
                         <Check className="w-3.5 h-3.5" />
                         <span>Setujui & Potong Stok</span>
@@ -370,7 +409,7 @@ export const AjuanBahanView: React.FC = () => {
                           const reason = prompt('Alasan penolakan / stok reagen tidak mencukupi:');
                           if (reason) rejectChemicalRequest(req.id, reason);
                         }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-md text-xs font-semibold transition-colors"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-md text-xs font-semibold transition-colors cursor-pointer"
                       >
                         <X className="w-3.5 h-3.5" /> Tolak
                       </button>
